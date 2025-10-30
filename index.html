@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Sample Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .menu-item {
+            background: #34495e;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .menu-item:hover {
+            background: #3498db;
+        }
+
+        .menu-item.active {
+            background: #3498db;
+        }
+
+        .filter-section {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #34495e;
+            border-radius: 5px;
+        }
+
+        .filter-section.active {
+            display: block;
+        }
+
+        .filter-section label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #ecf0f1;
+        }
+
+        .filter-section select, .filter-section button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .filter-section button {
+            background: #27ae60;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .filter-section button:hover {
+            background: #229954;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 24px;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            padding: 0 20px;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 14px;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            color: #2c3e50;
+        }
+
+        .tab.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        .content-area {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #7f8c8d;
+        }
+
+        .result-header {
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .result-header h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .result-count {
+            font-size: 24px;
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px;
+        }
+
+        .tat-overdue {
+            background: #ffe6e6;
+        }
+
+        .tat-pending {
+            background: #fff9e6;
+        }
+
+        .month-year-picker {
+            display: none;
+        }
+
+        .month-year-picker.active {
+            display: block;
+        }
+
+        .setup-required {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            color: #856404;
+        }
+
+        .setup-required h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .setup-required code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Lab Sample Tracker</h2>
+        
+        <div class="menu-item" onclick="showAllSheets()">
+            📊 View All Sheets
+        </div>
+
+        <div class="menu-item" onclick="toggleFilter('client')">
+            👥 Client Wise Segregation
+        </div>
+        <div id="clientFilter" class="filter-section">
+            <label>Select Client:</label>
+            <select id="clientSelect">
+                <option value="">Loading...</option>
+            </select>
+
+            <label>View By:</label>
+            <select id="clientViewType" onchange="toggleDatePickers()">
+                <option value="total">Total</option>
+                <option value="month">Month wise</option>
+                <option value="year">Year wise</option>
+            </select>
+
+            <div id="monthPicker" class="month-year-picker">
+                <label>Select Month:</label>
+                <select id="monthSelect">
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                <label>Select Year:</label>
+                <select id="monthYearSelect"></select>
+            </div>
+
+            <div id="yearPicker" class="month-year-picker">
+                <label>Select Year:</label>
+                <select id="yearSelect"></select>
+            </div>
+
+            <button onclick="applyClientFilter()">Apply Filter</button>
+        </div>
+
+        <div class="menu-item" onclick="toggleFilter('tat')">
+            ⏰ TAT Wise Segregation
+        </div>
+        <div id="tatFilter" class="filter-section">
+            <label>TAT Status:</label>
+            <select id="tatStatus">
+                <option value="not_crossed">TAT Not Yet Crossed (Pending)</option>
+                <option value="crossed">TAT Crossed (Report Not Released)</option>
+            </select>
+            <button onclick="applyTATFilter()">Apply Filter</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>Lab Sample Management System</h1>
+        </div>
+
+        <div class="tabs" id="sheetTabs"></div>
+
+        <div class="content-area" id="contentArea">
+            <div class="setup-required">
+                <h3>⚠️ Apps Script URL Required</h3>
+                <p><strong>Please replace the APPS_SCRIPT_URL in the code with your deployed web app URL.</strong></p>
+                <p>See the setup instructions to deploy the Apps Script first.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // REPLACE THIS WITH YOUR DEPLOYED APPS SCRIPT WEB APP URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-4Ya1MNG_E-ycS-vbs1qYq47VJYY2MydsJmQXLny-ogm4S2HUd2e513Bpoj4VsMsVMw/exec';
+        
+        let allData = {};
+        let currentSheet = '';
+        let allClients = new Set();
+
+        // Initialize
+        if (APPS_SCRIPT_URL !== 'https://script.google.com/macros/s/AKfycbz-4Ya1MNG_E-ycS-vbs1qYq47VJYY2MydsJmQXLny-ogm4S2HUd2e513Bpoj4VsMsVMw/exec') {
+            loadAllSheets();
+        }
+
+        async function loadAllSheets() {
+            try {
+                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data...</div>';
+                
+                // First, get all sheet names
+                const sheetListResponse = await fetch(APPS_SCRIPT_URL);
+                const sheetListData = await sheetListResponse.json();
+                
+                if (sheetListData.error) {
+                    throw new Error(sheetListData.error);
+                }
+                
+                const sheetNames = sheetListData.sheets;
+                
+                // Load each sheet
+                for (const sheetName of sheetNames) {
+                    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        console.error(`Error loading ${sheetName}:`, data.error);
+                        continue;
+                    }
+                    
+                    allData[sheetName] = data.values || [];
+                    
+                    // Collect all client names
+                    if (allData[sheetName].length > 1) {
+                        const headers = allData[sheetName][0];
+                        const clientIndex = headers.indexOf('Client Name');
+                        
+                        if (clientIndex !== -1) {
+                            for (let i = 1; i < allData[sheetName].length; i++) {
+                                const client = allData[sheetName][i][clientIndex];
+                                if (client && client.trim()) {
+                                    allClients.add(client.trim());
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                populateClientDropdown();
+                populateYearDropdowns();
+                renderSheetTabs();
+                showAllSheets();
+                
+            } catch (error) {
+                document.getElementById('contentArea').innerHTML = `<div class="error">Error: ${error.message}<br><br>Make sure you've deployed the Apps Script and updated the APPS_SCRIPT_URL in this file.</div>`;
+            }
+        }
+
+        function populateClientDropdown() {
+            const select = document.getElementById('clientSelect');
+            select.innerHTML = '<option value="">-- Select Client --</option>';
+            
+            Array.from(allClients).sort().forEach(client => {
+                const option = document.createElement('option');
+                option.value = client;
+                option.textContent = client;
+                select.appendChild(option);
+            });
+        }
+
+        function populateYearDropdowns() {
+            const years = ['2024', '2025', '2026'];
+            
+            ['monthYearSelect', 'yearSelect'].forEach(id => {
+                const select = document.getElementById(id);
+                select.innerHTML = '';
+                years.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function renderSheetTabs() {
+            const tabsContainer = document.getElementById('sheetTabs');
+            tabsContainer.innerHTML = '';
+            
+            Object.keys(allData).forEach(sheetName => {
+                const tab = document.createElement('button');
+                tab.className = 'tab';
+                tab.textContent = sheetName;
+                tab.onclick = () => displaySheet(sheetName);
+                tabsContainer.appendChild(tab);
+            });
+        }
+
+        function showAllSheets() {
+            document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            
+            if (Object.keys(allData).length > 0) {
+                const firstSheet = Object.keys(allData)[0];
+                displaySheet(firstSheet);
+            }
+        }
+
+        function displaySheet(sheetName) {
+            currentSheet = sheetName;
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.textContent === sheetName);
+            });
+            
+            const data = allData[sheetName];
+            if (!data || data.length === 0) {
+                document.getElementById('contentArea').innerHTML = '<div class="loading">No data available</div>';
+                return;
+            }
+            
+            renderTable(data, `All Samples - ${sheetName}`);
+        }
+
+        function renderTable(data, title = '', highlightTAT = false) {
+            if (data.length === 0) {
+                document.getElementById('contentArea').innerHTML = '<div class="loading">No data to display</div>';
+                return;
+            }
+            
+            const headers = data[0];
+            const rows = data.slice(1);
+            
+            let html = '';
+            
+            if (title) {
+                html += `<div class="result-header">
+                    <h3>${title}</h3>
+                    <div class="result-count">Total Samples: ${rows.length}</div>
+                </div>`;
+            }
+            
+            html += '<table><thead><tr>';
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            const tatIndex = headers.indexOf('TAT Report');
+            const releasedIndex = headers.indexOf('Report released date');
+            
+            rows.forEach(row => {
+                let rowClass = '';
+                
+                if (highlightTAT && tatIndex !== -1 && releasedIndex !== -1) {
+                    const tatDate = parseDate(row[tatIndex]);
+                    const releasedDate = row[releasedIndex];
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (tatDate && !releasedDate) {
+                        if (tatDate < today) {
+                            rowClass = 'tat-overdue';
+                        } else {
+                            rowClass = 'tat-pending';
+                        }
+                    }
+                }
+                
+                html += `<tr class="${rowClass}">`;
+                row.forEach(cell => {
+                    html += `<td>${cell || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('contentArea').innerHTML = html;
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            
+            // Handle date objects from Apps Script
+            if (dateStr instanceof Date) {
+                return dateStr;
+            }
+            
+            // Convert to string if needed
+            dateStr = String(dateStr);
+            
+            // Remove "yes" prefix if present
+            dateStr = dateStr.replace(/^yes\s*\(/i, '').replace(/\)$/, '');
+            
+            // Try to extract numbers
+            const numbers = dateStr.match(/\d+/g);
+            if (!numbers || numbers.length < 3) return null;
+            
+            let day, month, year;
+            
+            // Assume DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+            if (dateStr.includes('/') || dateStr.includes('-') || dateStr.includes('.')) {
+                day = parseInt(numbers[0]);
+                month = parseInt(numbers[1]) - 1;
+                year = parseInt(numbers[2]);
+                
+                if (year < 100) {
+                    year += year < 50 ? 2000 : 1900;
+                }
+                
+                const date = new Date(year, month, day);
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+            
+            return null;
+        }
+
+        function toggleFilter(type) {
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(type + 'Filter').classList.add('active');
+        }
+
+        function toggleDatePickers() {
+            const viewType = document.getElementById('clientViewType').value;
+            document.getElementById('monthPicker').classList.toggle('active', viewType === 'month');
+            document.getElementById('yearPicker').classList.toggle('active', viewType === 'year');
+        }
+
+        function applyClientFilter() {
+            const client = document.getElementById('clientSelect').value;
+            const viewType = document.getElementById('clientViewType').value;
+            
+            if (!client) {
+                alert('Please select a client');
+                return;
+            }
+            
+            let filteredData = [];
+            let title = `Client: ${client}`;
+            
+            Object.keys(allData).forEach(sheetName => {
+                const data = allData[sheetName];
+                if (data.length < 2) return;
+                
+                const headers = data[0];
+                const clientIndex = headers.indexOf('Client Name');
+                const receivedIndex = headers.indexOf('Received Date');
+                
+                if (clientIndex === -1) return;
+                
+                for (let i = 1; i < data.length; i++) {
+                    const row = data[i];
+                    if (row[clientIndex] === client) {
+                        if (viewType === 'total') {
+                            filteredData.push(row);
+                        } else if (viewType === 'month') {
+                            const month = parseInt(document.getElementById('monthSelect').value);
+                            const year = parseInt(document.getElementById('monthYearSelect').value);
+                            const receivedDate = parseDate(row[receivedIndex]);
+                            
+                            if (receivedDate && receivedDate.getMonth() + 1 === month && receivedDate.getFullYear() === year) {
+                                filteredData.push(row);
+                            }
+                        } else if (viewType === 'year') {
+                            const year = parseInt(document.getElementById('yearSelect').value);
+                            const receivedDate = parseDate(row[receivedIndex]);
+                            
+                            if (receivedDate && receivedDate.getFullYear() === year) {
+                                filteredData.push(row);
+                            }
+                        }
+                    }
+                }
+            });
+            
+            if (viewType === 'month') {
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const month = monthNames[parseInt(document.getElementById('monthSelect').value) - 1];
+                const year = document.getElementById('monthYearSelect').value;
+                title += ` - ${month} ${year}`;
+            } else if (viewType === 'year') {
+                const year = document.getElementById('yearSelect').value;
+                title += ` - Year ${year}`;
+            } else {
+                title += ' - Total (All Time)';
+            }
+            
+            if (filteredData.length > 0) {
+                const headers = allData[Object.keys(allData)[0]][0];
+                renderTable([headers, ...filteredData], title);
+            } else {
+                document.getElementById('contentArea').innerHTML = `<div class="loading">No samples found for ${client}</div>`;
+            }
+        }
+
+        function applyTATFilter() {
+            const tatStatus = document.getElementById('tatStatus').value;
+            let filteredData = [];
+            let title = tatStatus === 'not_crossed' ? 'TAT Not Yet Crossed (Pending Reports)' : 'TAT Crossed (Report Not Released)';
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            Object.keys(allData).forEach(sheetName => {
+                const data = allData[sheetName];
+                if (data.length < 2) return;
+                
+                const headers = data[0];
+                const tatIndex = headers.indexOf('TAT Report');
+                const releasedIndex = headers.indexOf('Report released date');
+                
+                if (tatIndex === -1 || releasedIndex === -1) return;
+                
+                for (let i = 1; i < data.length; i++) {
+                    const row = data[i];
+                    const tatDate = parseDate(row[tatIndex]);
+                    const releasedDate = row[releasedIndex];
+                    
+                    if (tatDate && (!releasedDate || releasedDate.trim() === '')) {
+                        if (tatStatus === 'not_crossed' && tatDate >= today) {
+                            filteredData.push(row);
+                        } else if (tatStatus === 'crossed' && tatDate < today) {
+                            filteredData.push(row);
+                        }
+                    }
+                }
+            });
+            
+            if (filteredData.length > 0) {
+                const headers = allData[Object.keys(allData)[0]][0];
+                renderTable([headers, ...filteredData], title, true);
+            } else {
+                document.getElementById('contentArea').innerHTML = `<div class="loading">No samples found matching the criteria</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
