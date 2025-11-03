@@ -20,11 +20,12 @@
         }
 
         .sidebar {
-            width: 280px;
+            width: 300px;
             background: #2c3e50;
             color: white;
             padding: 20px;
             overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
 
         .sidebar h2 {
@@ -36,19 +37,24 @@
 
         .menu-item {
             background: #34495e;
-            padding: 12px;
+            padding: 12px 15px;
             margin-bottom: 10px;
             border-radius: 5px;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .menu-item:hover {
             background: #3498db;
+            transform: translateX(5px);
         }
 
         .menu-item.active {
             background: #3498db;
+            box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4);
         }
 
         .filter-section {
@@ -57,6 +63,18 @@
             padding: 15px;
             background: #34495e;
             border-radius: 5px;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .filter-section.active {
@@ -66,17 +84,24 @@
         .filter-section label {
             display: block;
             margin-bottom: 5px;
+            margin-top: 10px;
             font-size: 13px;
             color: #ecf0f1;
+            font-weight: 500;
         }
 
         .filter-section select, .filter-section button {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             margin-bottom: 10px;
             border: none;
             border-radius: 4px;
             font-size: 14px;
+        }
+
+        .filter-section select {
+            background: white;
+            cursor: pointer;
         }
 
         .filter-section button {
@@ -84,6 +109,8 @@
             color: white;
             cursor: pointer;
             font-weight: bold;
+            margin-top: 10px;
+            transition: background 0.3s;
         }
 
         .filter-section button:hover {
@@ -99,7 +126,7 @@
 
         .header {
             background: white;
-            padding: 20px;
+            padding: 20px 30px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
@@ -108,12 +135,42 @@
             font-size: 24px;
         }
 
+        .header-controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+
         .tabs {
             display: flex;
             background: white;
             padding: 0 20px;
             border-bottom: 2px solid #e0e0e0;
             overflow-x: auto;
+            gap: 5px;
         }
 
         .tab {
@@ -125,15 +182,18 @@
             color: #7f8c8d;
             border-bottom: 3px solid transparent;
             white-space: nowrap;
+            transition: all 0.3s;
         }
 
         .tab:hover {
             color: #2c3e50;
+            background: #f8f9fa;
         }
 
         .tab.active {
             color: #3498db;
             border-bottom-color: #3498db;
+            font-weight: 600;
         }
 
         .content-area {
@@ -149,48 +209,104 @@
             color: #7f8c8d;
         }
 
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
         .result-header {
-            background: white;
-            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
             margin-bottom: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
 
         .result-header h3 {
-            color: #2c3e50;
             margin-bottom: 10px;
+            font-size: 20px;
         }
 
-        .result-count {
+        .result-stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
             font-size: 24px;
-            color: #3498db;
             font-weight: bold;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            overflow: hidden;
         }
 
         table {
             width: 100%;
-            background: white;
             border-collapse: collapse;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border-radius: 5px;
-            overflow: hidden;
         }
 
         th {
             background: #3498db;
             color: white;
-            padding: 12px;
+            padding: 15px 12px;
             text-align: left;
             font-weight: 600;
             position: sticky;
             top: 0;
             z-index: 10;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.3s;
+        }
+
+        th:hover {
+            background: #2980b9;
+        }
+
+        th.sortable::after {
+            content: ' ⇅';
+            opacity: 0.5;
+        }
+
+        th.sorted-asc::after {
+            content: ' ↑';
+            opacity: 1;
+        }
+
+        th.sorted-desc::after {
+            content: ' ↓';
+            opacity: 1;
         }
 
         td {
-            padding: 10px 12px;
+            padding: 12px;
             border-bottom: 1px solid #ecf0f1;
+            font-size: 14px;
         }
 
         tr:hover {
@@ -200,17 +316,21 @@
         .error {
             background: #e74c3c;
             color: white;
-            padding: 15px;
-            border-radius: 5px;
+            padding: 20px;
+            border-radius: 8px;
             margin: 20px;
         }
 
         .tat-overdue {
-            background: #ffe6e6;
+            background: #ffe6e6 !important;
         }
 
         .tat-pending {
-            background: #fff9e6;
+            background: #fff9e6 !important;
+        }
+
+        .tat-completed {
+            background: #e6ffe6 !important;
         }
 
         .month-year-picker {
@@ -221,38 +341,98 @@
             display: block;
         }
 
-        .setup-required {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            padding: 20px;
-            margin: 20px;
-            border-radius: 8px;
-            color: #856404;
+        .available-data-info {
+            background: #34495e;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-size: 12px;
         }
 
-        .setup-required h3 {
-            color: #856404;
-            margin-bottom: 10px;
+        .available-data-info h4 {
+            margin-bottom: 8px;
+            color: #3498db;
         }
 
-        .setup-required code {
-            background: #fff;
-            padding: 2px 6px;
+        .info-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 5px;
+            font-size: 11px;
+        }
+
+        .info-label {
+            color: #95a5a6;
+        }
+
+        .info-value {
+            color: #ecf0f1;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
             border-radius: 3px;
-            font-family: monospace;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .filter-tags {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .filter-tag {
+            background: #3498db;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .filter-tag .remove {
+            cursor: pointer;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="sidebar">
-        <h2>Lab Sample Tracker</h2>
+        <h2>📊 Lab Sample Tracker</h2>
         
         <div class="menu-item" onclick="showAllSheets()">
-            📊 View All Sheets
+            <span>🏠</span> View All Sheets
         </div>
 
         <div class="menu-item" onclick="toggleFilter('client')">
-            👥 Client Wise Segregation
+            <span>👥</span> Client Wise Segregation
         </div>
         <div id="clientFilter" class="filter-section">
             <label>Select Client:</label>
@@ -262,27 +442,14 @@
 
             <label>View By:</label>
             <select id="clientViewType" onchange="toggleDatePickers()">
-                <option value="total">Total</option>
+                <option value="total">Total (All Time)</option>
                 <option value="month">Month wise</option>
                 <option value="year">Year wise</option>
             </select>
 
             <div id="monthPicker" class="month-year-picker">
                 <label>Select Month:</label>
-                <select id="monthSelect">
-                    <option value="1">January</option>
-                    <option value="2">February</option>
-                    <option value="3">March</option>
-                    <option value="4">April</option>
-                    <option value="5">May</option>
-                    <option value="6">June</option>
-                    <option value="7">July</option>
-                    <option value="8">August</option>
-                    <option value="9">September</option>
-                    <option value="10">October</option>
-                    <option value="11">November</option>
-                    <option value="12">December</option>
-                </select>
+                <select id="monthSelect"></select>
                 <label>Select Year:</label>
                 <select id="monthYearSelect"></select>
             </div>
@@ -292,35 +459,48 @@
                 <select id="yearSelect"></select>
             </div>
 
-            <button onclick="applyClientFilter()">Apply Filter</button>
+            <button onclick="applyClientFilter()">📈 Apply Filter</button>
         </div>
 
         <div class="menu-item" onclick="toggleFilter('tat')">
-            ⏰ TAT Wise Segregation
+            <span>⏰</span> TAT Wise Segregation
         </div>
         <div id="tatFilter" class="filter-section">
             <label>TAT Status:</label>
             <select id="tatStatus">
-                <option value="not_crossed">TAT Not Yet Crossed (Pending)</option>
-                <option value="crossed">TAT Crossed (Report Not Released)</option>
+                <option value="not_crossed">⏳ TAT Not Yet Crossed (Pending)</option>
+                <option value="crossed">🚨 TAT Crossed (Report Not Released)</option>
+                <option value="completed">✅ Reports Released</option>
             </select>
-            <button onclick="applyTATFilter()">Apply Filter</button>
+            <button onclick="applyTATFilter()">⏰ Apply Filter</button>
+        </div>
+
+        <div id="dataInfo" class="available-data-info" style="display: none;">
+            <h4>📅 Available Data</h4>
+            <div class="info-grid">
+                <span class="info-label">Sheets:</span>
+                <span class="info-value" id="infoSheets">-</span>
+                <span class="info-label">Clients:</span>
+                <span class="info-value" id="infoClients">-</span>
+                <span class="info-label">Total Samples:</span>
+                <span class="info-value" id="infoSamples">-</span>
+            </div>
         </div>
     </div>
 
     <div class="main-content">
         <div class="header">
             <h1>Lab Sample Management System</h1>
+            <div class="header-controls">
+                <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search in current view..." onkeyup="searchTable()">
+                <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh Data</button>
+            </div>
         </div>
 
         <div class="tabs" id="sheetTabs"></div>
 
         <div class="content-area" id="contentArea">
-            <div class="setup-required">
-                <h3>⚠️ Apps Script URL Required</h3>
-                <p><strong>Please replace the APPS_SCRIPT_URL in the code with your deployed web app URL.</strong></p>
-                <p>See the setup instructions to deploy the Apps Script first.</p>
-            </div>
+            <div class="loading">Initializing system</div>
         </div>
     </div>
 
@@ -329,64 +509,54 @@
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-4Ya1MNG_E-ycS-vbs1qYq47VJYY2MydsJmQXLny-ogm4S2HUd2e513Bpoj4VsMsVMw/exec';
         
         let allData = {};
+        let metadata = {};
+        let currentView = [];
         let currentSheet = '';
-        let allClients = new Set();
+        let sortColumn = null;
+        let sortDirection = 'asc';
 
         // Initialize
         if (APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
-            loadAllSheets();
+            loadAllData();
+        } else {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="error">
+                    <h3>⚠️ Configuration Required</h3>
+                    <p>Please update the <code>APPS_SCRIPT_URL</code> in the code with your deployed Apps Script URL.</p>
+                    <p>Follow the setup instructions to deploy the Apps Script first.</p>
+                </div>
+            `;
         }
 
-        async function loadAllSheets() {
+        async function loadAllData() {
             try {
-                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data...</div>';
+                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data from Google Sheets</div>';
                 
-                // First, get all sheet names
-                const sheetListResponse = await fetch(APPS_SCRIPT_URL);
-                const sheetListData = await sheetListResponse.json();
+                const url = `${APPS_SCRIPT_URL}?action=getAllData`;
+                const response = await fetch(url);
+                const data = await response.json();
                 
-                if (sheetListData.error) {
-                    throw new Error(sheetListData.error);
+                if (data.error) {
+                    throw new Error(data.error);
                 }
                 
-                const sheetNames = sheetListData.sheets;
-                
-                // Load each sheet
-                for (const sheetName of sheetNames) {
-                    const url = `${APPS_SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
-                    const response = await fetch(url);
-                    const data = await response.json();
-                    
-                    if (data.error) {
-                        console.error(`Error loading ${sheetName}:`, data.error);
-                        continue;
-                    }
-                    
-                    allData[sheetName] = data.values || [];
-                    
-                    // Collect all client names
-                    if (allData[sheetName].length > 1) {
-                        const headers = allData[sheetName][0];
-                        const clientIndex = headers.indexOf('Client Name');
-                        
-                        if (clientIndex !== -1) {
-                            for (let i = 1; i < allData[sheetName].length; i++) {
-                                const client = allData[sheetName][i][clientIndex];
-                                if (client && client.trim()) {
-                                    allClients.add(client.trim());
-                                }
-                            }
-                        }
-                    }
-                }
+                allData = data.sheets;
+                metadata = data.metadata;
                 
                 populateClientDropdown();
-                populateYearDropdowns();
+                populateMonthYearDropdowns();
                 renderSheetTabs();
+                updateDataInfo();
                 showAllSheets();
                 
             } catch (error) {
-                document.getElementById('contentArea').innerHTML = `<div class="error">Error: ${error.message}<br><br>Make sure you've deployed the Apps Script and updated the APPS_SCRIPT_URL in this file.</div>`;
+                document.getElementById('contentArea').innerHTML = `
+                    <div class="error">
+                        <h3>Error Loading Data</h3>
+                        <p>${error.message}</p>
+                        <p>Please ensure the Apps Script is deployed correctly and the URL is updated.</p>
+                    </div>
+                `;
             }
         }
 
@@ -394,7 +564,7 @@
             const select = document.getElementById('clientSelect');
             select.innerHTML = '<option value="">-- Select Client --</option>';
             
-            Array.from(allClients).sort().forEach(client => {
+            metadata.clients.forEach(client => {
                 const option = document.createElement('option');
                 option.value = client;
                 option.textContent = client;
@@ -402,19 +572,43 @@
             });
         }
 
-        function populateYearDropdowns() {
-            const years = ['2024', '2025', '2026'];
+        function populateMonthYearDropdowns() {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                               'July', 'August', 'September', 'October', 'November', 'December'];
             
+            // Month dropdown
+            const monthSelect = document.getElementById('monthSelect');
+            monthSelect.innerHTML = '';
+            metadata.months.forEach(monthNum => {
+                const option = document.createElement('option');
+                option.value = monthNum;
+                option.textContent = monthNames[monthNum - 1];
+                monthSelect.appendChild(option);
+            });
+            
+            // Year dropdowns
             ['monthYearSelect', 'yearSelect'].forEach(id => {
                 const select = document.getElementById(id);
                 select.innerHTML = '';
-                years.forEach(year => {
+                metadata.years.forEach(year => {
                     const option = document.createElement('option');
                     option.value = year;
                     option.textContent = year;
                     select.appendChild(option);
                 });
             });
+        }
+
+        function updateDataInfo() {
+            document.getElementById('dataInfo').style.display = 'block';
+            document.getElementById('infoSheets').textContent = Object.keys(allData).length;
+            document.getElementById('infoClients').textContent = metadata.clients.length;
+            
+            let totalSamples = 0;
+            Object.values(allData).forEach(sheet => {
+                totalSamples += sheet.rows.length;
+            });
+            document.getElementById('infoSamples').textContent = totalSamples;
         }
 
         function renderSheetTabs() {
@@ -447,113 +641,214 @@
                 tab.classList.toggle('active', tab.textContent === sheetName);
             });
             
-            const data = allData[sheetName];
-            if (!data || data.length === 0) {
-                document.getElementById('contentArea').innerHTML = '<div class="loading">No data available</div>';
+            const sheetData = allData[sheetName];
+            if (!sheetData || sheetData.rows.length === 0) {
+                document.getElementById('contentArea').innerHTML = '<div class="no-data">No data available in this sheet</div>';
                 return;
             }
             
-            renderTable(data, `All Samples - ${sheetName}`);
+            currentView = sheetData.rows;
+            renderTable(sheetData.rows, `${sheetName} - All Samples`, sheetData.headers);
         }
 
-        function renderTable(data, title = '', highlightTAT = false) {
-            if (data.length === 0) {
-                document.getElementById('contentArea').innerHTML = '<div class="loading">No data to display</div>';
+        function renderTable(rows, title = '', headers = null) {
+            if (rows.length === 0) {
+                document.getElementById('contentArea').innerHTML = '<div class="no-data">No samples match your criteria</div>';
                 return;
             }
             
-            const headers = data[0];
-            const rows = data.slice(1);
-            
-            let html = '';
-            
-            if (title) {
-                html += `<div class="result-header">
-                    <h3>${title}</h3>
-                    <div class="result-count">Total Samples: ${rows.length}</div>
-                </div>`;
+            // Use first sheet's headers if not provided
+            if (!headers) {
+                headers = allData[Object.keys(allData)[0]].headers;
             }
             
-            html += '<table><thead><tr>';
-            headers.forEach(header => {
-                html += `<th>${header}</th>`;
-            });
-            html += '</tr></thead><tbody>';
+            const rowKeys = Object.keys(rows[0]);
             
-            const tatIndex = headers.indexOf('TAT Report');
-            const releasedIndex = headers.indexOf('Report released date');
+            let html = `
+                <div class="result-header">
+                    <h3>${title}</h3>
+                    <div class="result-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Total Samples</div>
+                            <div class="stat-value">${rows.length}</div>
+                        </div>
+                        ${getTATStats(rows)}
+                    </div>
+                </div>
+            `;
+            
+            html += '<div class="table-container"><table><thead><tr>';
+            
+            headers.forEach((header, index) => {
+                html += `<th class="sortable" onclick="sortTable(${index})">${header}</th>`;
+            });
+            
+            html += '</tr></thead><tbody id="tableBody">';
             
             rows.forEach(row => {
-                let rowClass = '';
-                
-                if (highlightTAT && tatIndex !== -1 && releasedIndex !== -1) {
-                    const tatDate = parseDate(row[tatIndex]);
-                    const releasedDate = row[releasedIndex];
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    
-                    if (tatDate && !releasedDate) {
-                        if (tatDate < today) {
-                            rowClass = 'tat-overdue';
-                        } else {
-                            rowClass = 'tat-pending';
-                        }
-                    }
-                }
-                
+                const rowClass = getTATClass(row);
                 html += `<tr class="${rowClass}">`;
-                row.forEach(cell => {
-                    html += `<td>${cell || ''}</td>`;
+                
+                rowKeys.forEach(key => {
+                    html += `<td>${row[key] || ''}</td>`;
                 });
+                
                 html += '</tr>';
             });
             
-            html += '</tbody></table>';
+            html += '</tbody></table></div>';
+            
             document.getElementById('contentArea').innerHTML = html;
         }
 
-        function parseDate(dateStr) {
-            if (!dateStr) return null;
+        function getTATStats(rows) {
+            let pending = 0, overdue = 0, completed = 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
             
-            // Handle date objects from Apps Script
-            if (dateStr instanceof Date) {
-                return dateStr;
+            rows.forEach(row => {
+                const tatDate = parseDate(row.tatReport);
+                const releasedDate = row.reportReleasedDate;
+                
+                if (releasedDate && releasedDate.trim()) {
+                    completed++;
+                } else if (tatDate) {
+                    if (tatDate < today) {
+                        overdue++;
+                    } else {
+                        pending++;
+                    }
+                }
+            });
+            
+            return `
+                <div class="stat-item">
+                    <div class="stat-label">⏳ Pending</div>
+                    <div class="stat-value">${pending}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">🚨 Overdue</div>
+                    <div class="stat-value">${overdue}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">✅ Completed</div>
+                    <div class="stat-value">${completed}</div>
+                </div>
+            `;
+        }
+
+        function getTATClass(row) {
+            const tatDate = parseDate(row.tatReport);
+            const releasedDate = row.reportReleasedDate;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (releasedDate && releasedDate.trim()) {
+                return 'tat-completed';
             }
             
-            // Convert to string if needed
-            dateStr = String(dateStr);
-            
-            // Remove "yes" prefix if present
-            dateStr = dateStr.replace(/^yes\s*\(/i, '').replace(/\)$/, '');
-            
-            // Try to extract numbers
-            const numbers = dateStr.match(/\d+/g);
-            if (!numbers || numbers.length < 3) return null;
-            
-            let day, month, year;
-            
-            // Assume DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
-            if (dateStr.includes('/') || dateStr.includes('-') || dateStr.includes('.')) {
-                day = parseInt(numbers[0]);
-                month = parseInt(numbers[1]) - 1;
-                year = parseInt(numbers[2]);
-                
-                if (year < 100) {
-                    year += year < 50 ? 2000 : 1900;
+            if (tatDate) {
+                if (tatDate < today) {
+                    return 'tat-overdue';
+                } else {
+                    return 'tat-pending';
                 }
-                
-                const date = new Date(year, month, day);
-                if (!isNaN(date.getTime())) {
-                    return date;
-                }
+            }
+            
+            return '';
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr || dateStr === '') return null;
+            
+            const parts = dateStr.split('/');
+            if (parts.length !== 3) return null;
+            
+            const day = parseInt(parts[0]);
+            const month = parseInt(parts[1]) - 1;
+            const year = parseInt(parts[2]);
+            
+            const date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) {
+                return date;
             }
             
             return null;
         }
 
+        function sortTable(columnIndex) {
+            const headers = allData[Object.keys(allData)[0]].headers;
+            const columnName = headers[columnIndex];
+            const rowKeys = Object.keys(currentView[0]);
+            const sortKey = rowKeys[columnIndex];
+            
+            if (sortColumn === columnIndex) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = columnIndex;
+                sortDirection = 'asc';
+            }
+            
+            currentView.sort((a, b) => {
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+                
+                // Handle dates
+                const dateA = parseDate(valA);
+                const dateB = parseDate(valB);
+                if (dateA && dateB) {
+                    return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+                }
+                
+                // Handle numbers
+                const numA = parseFloat(valA);
+                const numB = parseFloat(valB);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    return sortDirection === 'asc' ? numA - numB : numB - numA;
+                }
+                
+                // Handle strings
+                valA = String(valA).toLowerCase();
+                valB = String(valB).toLowerCase();
+                
+                if (sortDirection === 'asc') {
+                    return valA < valB ? -1 : valA > valB ? 1 : 0;
+                } else {
+                    return valA > valB ? -1 : valA < valB ? 1 : 0;
+                }
+            });
+            
+            renderTable(currentView, document.querySelector('.result-header h3').textContent, headers);
+            
+            // Update sort indicators
+            document.querySelectorAll('th').forEach((th, idx) => {
+                th.classList.remove('sorted-asc', 'sorted-desc');
+                if (idx === columnIndex) {
+                    th.classList.add(sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                }
+            });
+        }
+
+        function searchTable() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            
+            if (!searchTerm) {
+                renderTable(currentView, document.querySelector('.result-header h3').textContent);
+                return;
+            }
+            
+            const filtered = currentView.filter(row => {
+                return Object.values(row).some(val => 
+                    String(val).toLowerCase().includes(searchTerm)
+                );
+            });
+            
+            renderTable(filtered, document.querySelector('.result-header h3').textContent + ` (Filtered)`);
+        }
+
         function toggleFilter(type) {
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
+            event.target.closest('.menu-item').classList.add('active');
             
             document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
             document.getElementById(type + 'Filter').classList.add('active');
@@ -577,39 +872,29 @@
             let filteredData = [];
             let title = `Client: ${client}`;
             
-            Object.keys(allData).forEach(sheetName => {
-                const data = allData[sheetName];
-                if (data.length < 2) return;
-                
-                const headers = data[0];
-                const clientIndex = headers.indexOf('Client Name');
-                const receivedIndex = headers.indexOf('Received Date');
-                
-                if (clientIndex === -1) return;
-                
-                for (let i = 1; i < data.length; i++) {
-                    const row = data[i];
-                    if (row[clientIndex] === client) {
+            Object.values(allData).forEach(sheetData => {
+                sheetData.rows.forEach(row => {
+                    if (row.clientName === client) {
                         if (viewType === 'total') {
                             filteredData.push(row);
                         } else if (viewType === 'month') {
                             const month = parseInt(document.getElementById('monthSelect').value);
                             const year = parseInt(document.getElementById('monthYearSelect').value);
-                            const receivedDate = parseDate(row[receivedIndex]);
+                            const receivedDate = parseDate(row.receivedDate);
                             
                             if (receivedDate && receivedDate.getMonth() + 1 === month && receivedDate.getFullYear() === year) {
                                 filteredData.push(row);
                             }
                         } else if (viewType === 'year') {
                             const year = parseInt(document.getElementById('yearSelect').value);
-                            const receivedDate = parseDate(row[receivedIndex]);
+                            const receivedDate = parseDate(row.receivedDate);
                             
                             if (receivedDate && receivedDate.getFullYear() === year) {
                                 filteredData.push(row);
                             }
                         }
                     }
-                }
+                });
             });
             
             if (viewType === 'month') {
@@ -624,53 +909,47 @@
                 title += ' - Total (All Time)';
             }
             
-            if (filteredData.length > 0) {
-                const headers = allData[Object.keys(allData)[0]][0];
-                renderTable([headers, ...filteredData], title);
-            } else {
-                document.getElementById('contentArea').innerHTML = `<div class="loading">No samples found for ${client}</div>`;
-            }
+            currentView = filteredData;
+            renderTable(filteredData, title);
         }
 
         function applyTATFilter() {
             const tatStatus = document.getElementById('tatStatus').value;
             let filteredData = [];
-            let title = tatStatus === 'not_crossed' ? 'TAT Not Yet Crossed (Pending Reports)' : 'TAT Crossed (Report Not Released)';
+            let title = '';
             
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            Object.keys(allData).forEach(sheetName => {
-                const data = allData[sheetName];
-                if (data.length < 2) return;
-                
-                const headers = data[0];
-                const tatIndex = headers.indexOf('TAT Report');
-                const releasedIndex = headers.indexOf('Report released date');
-                
-                if (tatIndex === -1 || releasedIndex === -1) return;
-                
-                for (let i = 1; i < data.length; i++) {
-                    const row = data[i];
-                    const tatDate = parseDate(row[tatIndex]);
-                    const releasedDate = row[releasedIndex];
+            Object.values(allData).forEach(sheetData => {
+                sheetData.rows.forEach(row => {
+                    const tatDate = parseDate(row.tatReport);
+                    const releasedDate = row.reportReleasedDate;
                     
-                    if (tatDate && (!releasedDate || releasedDate.trim() === '')) {
+                    if (tatStatus === 'completed') {
+                        if (releasedDate && releasedDate.trim()) {
+                            filteredData.push(row);
+                        }
+                    } else if (tatDate && (!releasedDate || !releasedDate.trim())) {
                         if (tatStatus === 'not_crossed' && tatDate >= today) {
                             filteredData.push(row);
                         } else if (tatStatus === 'crossed' && tatDate < today) {
                             filteredData.push(row);
                         }
                     }
-                }
+                });
             });
             
-            if (filteredData.length > 0) {
-                const headers = allData[Object.keys(allData)[0]][0];
-                renderTable([headers, ...filteredData], title, true);
+            if (tatStatus === 'not_crossed') {
+                title = '⏳ TAT Not Yet Crossed (Pending Reports)';
+            } else if (tatStatus === 'crossed') {
+                title = '🚨 TAT Crossed (Report Not Released)';
             } else {
-                document.getElementById('contentArea').innerHTML = `<div class="loading">No samples found matching the criteria</div>`;
+                title = '✅ Reports Released';
             }
+            
+            currentView = filteredData;
+            renderTable(filteredData, title);
         }
     </script>
 </body>
