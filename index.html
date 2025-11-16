@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CMC Sample Tracker</title>
+    <title>Lab Sample Tracker</title>
     <style>
         * {
             margin: 0;
@@ -656,7 +656,7 @@
         let currentSheet = '';
         let sortColumn = null;
         let sortDirection = 'asc';
-        let columnMapping = {};
+        let columnMappings = {}; // Store mappings per sheet
 
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
@@ -720,30 +720,39 @@
         }
 
         function detectColumnMappings() {
-            // Get headers from first sheet
-            const firstSheet = Object.keys(allData)[0];
-            if (!firstSheet || !allData[firstSheet].headers) {
-                console.error('No sheet data available for column detection');
-                return;
-            }
-
-            const headers = allData[firstSheet].headers;
-            columnMapping = {};
-
-            // Try to match each required field with actual headers
-            for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-                const matchedHeader = findMatchingHeader(headers, patterns);
-                if (matchedHeader) {
-                    columnMapping[field] = matchedHeader;
-                    console.log(`✓ Mapped ${field} to "${matchedHeader}"`);
-                } else {
-                    console.warn(`⚠ Could not find column for ${field}`);
-                    columnMapping[field] = null;
+            // Detect column mappings for EACH sheet individually
+            columnMappings = {};
+            
+            Object.keys(allData).forEach(sheetName => {
+                const sheetData = allData[sheetName];
+                if (!sheetData || !sheetData.headers) {
+                    console.warn(`No headers found for sheet: ${sheetName}`);
+                    return;
                 }
-            }
 
-            // Store all headers for reference
-            columnMapping._allHeaders = headers;
+                const headers = sheetData.headers;
+                const sheetMapping = {};
+
+                // Try to match each required field with actual headers
+                for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                    const matchedHeader = findMatchingHeader(headers, patterns);
+                    if (matchedHeader) {
+                        sheetMapping[field] = matchedHeader;
+                        console.log(`✓ [${sheetName}] Mapped ${field} to "${matchedHeader}"`);
+                    } else {
+                        console.warn(`⚠ [${sheetName}] Could not find column for ${field}`);
+                        sheetMapping[field] = null;
+                    }
+                }
+
+                // Store all headers for reference
+                sheetMapping._allHeaders = headers;
+                sheetMapping._sheetName = sheetName;
+                
+                columnMappings[sheetName] = sheetMapping;
+            });
+            
+            console.log('Column mappings created for all sheets:', Object.keys(columnMappings));
         }
 
         function findMatchingHeader(headers, patterns) {
@@ -778,29 +787,57 @@
         }
 
         function validateColumnMappings() {
-            const missingFields = [];
+            const allMissingFields = {};
             const requiredFields = ['clientName', 'tatReport', 'reportReleasedDate', 'receivedDate'];
 
-            for (const field of requiredFields) {
-                if (!columnMapping[field]) {
-                    missingFields.push(field);
+            // Check each sheet for missing fields
+            Object.keys(columnMappings).forEach(sheetName => {
+                const mapping = columnMappings[sheetName];
+                const missingFields = [];
+                
+                for (const field of requiredFields) {
+                    if (!mapping[field]) {
+                        missingFields.push(field);
+                    }
                 }
-            }
+                
+                if (missingFields.length > 0) {
+                    allMissingFields[sheetName] = missingFields;
+                }
+            });
 
-            if (missingFields.length > 0) {
+            // Show warning if any sheets have missing fields
+            if (Object.keys(allMissingFields).length > 0) {
                 const warningDiv = document.createElement('div');
                 warningDiv.className = 'warning';
-                warningDiv.innerHTML = `
-                    <h3>⚠️ Column Mapping Warning</h3>
-                    <p>Could not auto-detect the following columns: <strong>${missingFields.join(', ')}</strong></p>
-                    <p>Some features may not work correctly. Click "Column Mapping" to view detected columns.</p>
-                `;
-                document.getElementById('contentArea').insertAdjacentElement('afterbegin', warningDiv);
+                let warningHTML = '<h3>⚠️ Column Mapping Warning</h3>';
+                
+                Object.keys(allMissingFields).forEach(sheetName => {
+                    const missing = allMissingFields[sheetName];
+                    warningHTML += `<p><strong>${sheetName}:</strong> Could not auto-detect: <strong>${missing.join(', ')}</strong></p>`;
+                });
+                
+                warningHTML += '<p>Some features may not work correctly for these sheets. Click "Column Mapping" to view detected columns.</p>';
+                warningDiv.innerHTML = warningHTML;
+                
+                // Only show warning once
+                const existingWarning = document.querySelector('.warning');
+                if (!existingWarning) {
+                    document.getElementById('contentArea').insertAdjacentElement('afterbegin', warningDiv);
+                }
             }
         }
 
-        function getFieldValue(row, field) {
-            const columnName = columnMapping[field];
+        function getFieldValue(row, field, sheetName = null) {
+            // If sheetName not provided, try to use currentSheet
+            const targetSheet = sheetName || currentSheet;
+            
+            if (!targetSheet || !columnMappings[targetSheet]) {
+                console.warn(`No column mapping found for sheet: ${targetSheet}`);
+                return null;
+            }
+            
+            const columnName = columnMappings[targetSheet][field];
             if (!columnName) return null;
             return row[columnName];
         }
@@ -810,37 +847,40 @@
             const content = document.getElementById('configContent');
             
             let html = '<div class="config-section">';
-            html += '<h3>Detected Column Mappings</h3>';
-            html += '<p style="margin-bottom: 15px; color: #7f8c8d;">The system automatically detected these column mappings from your sheets:</p>';
-            html += '<div class="config-grid">';
-
-            for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-                const detectedColumn = columnMapping[field];
-                const statusClass = detectedColumn ? 'mapping-detected' : 'mapping-missing';
-                const statusIcon = detectedColumn ? '✓' : '✗';
-                
-                html += `
-                    <div class="config-label">${field}:</div>
-                    <div class="config-value ${statusClass}">
-                        ${statusIcon} ${detectedColumn || 'Not detected'}
-                    </div>
-                `;
-            }
-
-            html += '</div></div>';
-
-            html += '<div class="config-section">';
-            html += '<h3>All Available Columns</h3>';
-            html += '<p style="margin-bottom: 15px; color: #7f8c8d;">These are all the columns found in your sheets:</p>';
-            html += '<ul style="list-style: none; padding: 0;">';
+            html += '<h3>Detected Column Mappings (Per Sheet)</h3>';
+            html += '<p style="margin-bottom: 15px; color: #7f8c8d;">The system automatically detected these column mappings for each sheet:</p>';
             
-            if (columnMapping._allHeaders) {
-                columnMapping._allHeaders.forEach(header => {
-                    html += `<li style="padding: 5px; background: #f8f9fa; margin-bottom: 5px; border-radius: 3px;">• ${header}</li>`;
-                });
-            }
+            // Show mappings for each sheet
+            Object.keys(columnMappings).forEach(sheetName => {
+                const mapping = columnMappings[sheetName];
+                html += `<h4 style="color: #3498db; margin-top: 20px; margin-bottom: 10px;">📄 ${sheetName}</h4>`;
+                html += '<div class="config-grid">';
+                
+                for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                    const detectedColumn = mapping[field];
+                    const statusClass = detectedColumn ? 'mapping-detected' : 'mapping-missing';
+                    const statusIcon = detectedColumn ? '✓' : '✗';
+                    
+                    html += `
+                        <div class="config-label">${field}:</div>
+                        <div class="config-value ${statusClass}">
+                            ${statusIcon} ${detectedColumn || 'Not detected'}
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                
+                // Show all available columns for this sheet
+                html += '<h5 style="color: #7f8c8d; margin-top: 10px; font-size: 13px;">Available columns in this sheet:</h5>';
+                html += '<div style="font-size: 11px; color: #95a5a6; margin-bottom: 10px;">';
+                if (mapping._allHeaders) {
+                    html += mapping._allHeaders.join(', ');
+                }
+                html += '</div>';
+            });
 
-            html += '</ul></div>';
+            html += '</div>';
 
             content.innerHTML = html;
             modal.classList.add('active');
@@ -856,9 +896,10 @@
             
             // Extract unique clients from all sheets
             const clients = new Set();
-            Object.values(allData).forEach(sheetData => {
+            Object.keys(allData).forEach(sheetName => {
+                const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
-                    const clientName = getFieldValue(row, 'clientName');
+                    const clientName = getFieldValue(row, 'clientName', sheetName);
                     if (clientName && clientName.trim()) {
                         clients.add(clientName.trim());
                     }
@@ -882,9 +923,10 @@
             const months = new Set();
             const years = new Set();
 
-            Object.values(allData).forEach(sheetData => {
+            Object.keys(allData).forEach(sheetName => {
+                const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
-                    const receivedDate = parseDate(getFieldValue(row, 'receivedDate'));
+                    const receivedDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                     if (receivedDate) {
                         months.add(receivedDate.getMonth() + 1);
                         years.add(receivedDate.getFullYear());
@@ -922,10 +964,11 @@
             const clients = new Set();
             let totalSamples = 0;
             
-            Object.values(allData).forEach(sheet => {
+            Object.keys(allData).forEach(sheetName => {
+                const sheet = allData[sheetName];
                 totalSamples += sheet.rows.length;
                 sheet.rows.forEach(row => {
-                    const clientName = getFieldValue(row, 'clientName');
+                    const clientName = getFieldValue(row, 'clientName', sheetName);
                     if (clientName && clientName.trim()) {
                         clients.add(clientName.trim());
                     }
@@ -972,8 +1015,14 @@
                 return;
             }
             
-            currentView = sheetData.rows;
-            renderTable(sheetData.rows, `${sheetName} - All Samples`, sheetData.headers);
+            // Add source sheet to each row for proper column mapping
+            const rowsWithSource = sheetData.rows.map(row => ({
+                ...row,
+                _sourceSheet: sheetName
+            }));
+            
+            currentView = rowsWithSource;
+            renderTable(rowsWithSource, `${sheetName} - All Samples`, sheetData.headers);
         }
 
         function renderTable(rows, title = '', headers = null) {
@@ -987,7 +1036,9 @@
                 headers = allData[Object.keys(allData)[0]].headers;
             }
             
-            const rowKeys = Object.keys(rows[0]);
+            // Get row keys excluding _sourceSheet
+            const allKeys = Object.keys(rows[0]);
+            const rowKeys = allKeys.filter(key => key !== '_sourceSheet');
             
             let html = `
                 <div class="result-header">
@@ -1050,8 +1101,11 @@
             today.setHours(0, 0, 0, 0);
             
             rows.forEach(row => {
-                const tatDate = parseDate(getFieldValue(row, 'tatReport'));
-                const releasedDate = getFieldValue(row, 'reportReleasedDate');
+                // Determine which sheet this row came from
+                const sheetName = row._sourceSheet || currentSheet;
+                
+                const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                const releasedDate = getFieldValue(row, 'reportReleasedDate', sheetName);
                 
                 // Check if report is released
                 if (releasedDate && String(releasedDate).trim()) {
@@ -1096,8 +1150,11 @@
         }
 
         function getTATClass(row) {
-            const tatDate = parseDate(getFieldValue(row, 'tatReport'));
-            const releasedDate = getFieldValue(row, 'reportReleasedDate');
+            // Determine which sheet this row came from
+            const sheetName = row._sourceSheet || currentSheet;
+            
+            const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+            const releasedDate = getFieldValue(row, 'reportReleasedDate', sheetName);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
@@ -1182,7 +1239,8 @@
         function sortTable(columnIndex) {
             const headers = allData[Object.keys(allData)[0]].headers;
             const columnName = headers[columnIndex];
-            const rowKeys = Object.keys(currentView[0]);
+            const allKeys = Object.keys(currentView[0]);
+            const rowKeys = allKeys.filter(key => key !== '_sourceSheet');
             const sortKey = rowKeys[columnIndex];
             
             if (sortColumn === columnIndex) {
@@ -1283,37 +1341,45 @@
                 return;
             }
             
-            if (!columnMapping.clientName) {
-                alert('Client column not detected. Please check column mapping.');
-                return;
-            }
-            
             let filteredData = [];
             let title = `Client: ${client}`;
             
-            Object.values(allData).forEach(sheetData => {
+            Object.keys(allData).forEach(sheetName => {
+                const sheetData = allData[sheetName];
+                const mapping = columnMappings[sheetName];
+                
+                // Check if this sheet has the required column
+                if (!mapping || !mapping.clientName) {
+                    console.warn(`Skipping sheet ${sheetName} - no client column mapping`);
+                    return;
+                }
+                
                 sheetData.rows.forEach(row => {
-                    const rowClient = getFieldValue(row, 'clientName');
+                    const rowClient = getFieldValue(row, 'clientName', sheetName);
                     
                     if (rowClient && rowClient.trim() === client) {
                         if (viewType === 'total') {
-                            filteredData.push(row);
+                            // Add source sheet to row
+                            const rowWithSource = { ...row, _sourceSheet: sheetName };
+                            filteredData.push(rowWithSource);
                         } else if (viewType === 'month') {
                             const month = parseInt(document.getElementById('monthSelect').value);
                             const year = parseInt(document.getElementById('monthYearSelect').value);
-                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate'));
+                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                             
                             if (receivedDate && 
                                 receivedDate.getMonth() + 1 === month && 
                                 receivedDate.getFullYear() === year) {
-                                filteredData.push(row);
+                                const rowWithSource = { ...row, _sourceSheet: sheetName };
+                                filteredData.push(rowWithSource);
                             }
                         } else if (viewType === 'year') {
                             const year = parseInt(document.getElementById('yearSelect').value);
-                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate'));
+                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                             
                             if (receivedDate && receivedDate.getFullYear() === year) {
-                                filteredData.push(row);
+                                const rowWithSource = { ...row, _sourceSheet: sheetName };
+                                filteredData.push(rowWithSource);
                             }
                         }
                     }
@@ -1345,40 +1411,47 @@
         function applyTATFilter() {
             const tatStatus = document.getElementById('tatStatus').value;
             
-            if (!columnMapping.tatReport && tatStatus !== 'completed') {
-                alert('TAT column not detected. Please check column mapping.');
-                return;
-            }
-            
-            if (!columnMapping.reportReleasedDate) {
-                alert('Report Released Date column not detected. Please check column mapping.');
-                return;
-            }
-            
             let filteredData = [];
             let title = '';
             
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            Object.values(allData).forEach(sheetData => {
+            Object.keys(allData).forEach(sheetName => {
+                const sheetData = allData[sheetName];
+                const mapping = columnMappings[sheetName];
+                
+                // Check if this sheet has required columns
+                if (tatStatus !== 'completed' && (!mapping || !mapping.tatReport)) {
+                    console.warn(`Skipping sheet ${sheetName} - no TAT column mapping`);
+                    return;
+                }
+                
+                if (!mapping || !mapping.reportReleasedDate) {
+                    console.warn(`Skipping sheet ${sheetName} - no report released date mapping`);
+                    return;
+                }
+                
                 sheetData.rows.forEach(row => {
-                    const tatDate = parseDate(getFieldValue(row, 'tatReport'));
-                    const releasedDate = getFieldValue(row, 'reportReleasedDate');
+                    const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                    const releasedDate = getFieldValue(row, 'reportReleasedDate', sheetName);
                     const releasedDateStr = releasedDate ? String(releasedDate).trim() : '';
                     
                     if (tatStatus === 'completed') {
                         // Show all completed reports (with release date)
                         if (releasedDateStr) {
-                            filteredData.push(row);
+                            const rowWithSource = { ...row, _sourceSheet: sheetName };
+                            filteredData.push(rowWithSource);
                         }
                     } else if (tatDate) {
                         // Only process if TAT date exists and report not released
                         if (!releasedDateStr) {
                             if (tatStatus === 'not_crossed' && tatDate >= today) {
-                                filteredData.push(row);
+                                const rowWithSource = { ...row, _sourceSheet: sheetName };
+                                filteredData.push(rowWithSource);
                             } else if (tatStatus === 'crossed' && tatDate < today) {
-                                filteredData.push(row);
+                                const rowWithSource = { ...row, _sourceSheet: sheetName };
+                                filteredData.push(rowWithSource);
                             }
                         }
                     }
