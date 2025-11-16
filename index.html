@@ -270,12 +270,58 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: visible;
+            max-width: 100%;
+            position: relative;
         }
 
         table {
             width: 100%;
+            min-width: 800px;
             border-collapse: collapse;
+        }
+        
+        /* Smooth scrolling */
+        .table-container::-webkit-scrollbar {
+            height: 10px;
+        }
+        
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Scroll hint */
+        .scroll-hint {
+            text-align: center;
+            padding: 8px;
+            background: #ecf0f1;
+            color: #7f8c8d;
+            font-size: 12px;
+            border-radius: 5px 5px 0 0;
+            display: none;
+        }
+
+        .scroll-hint.show {
+            display: block;
+        }
+
+        .scroll-hint::before {
+            content: '← ';
+        }
+
+        .scroll-hint::after {
+            content: ' →';
         }
 
         th {
@@ -568,6 +614,8 @@
                 <span class="info-value" id="infoSamples">-</span>
             </div>
         </div>
+
+
     </div>
 
     <div class="main-content">
@@ -612,12 +660,12 @@
 
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
-            clientName: ['client', 'client name', 'clientname', 'customer', 'customer name'],
-            tatReport: ['tat', 'tat report', 'tatreport', 'turnaround', 'turnaround time', 'due date', 'target date'],
-            reportReleasedDate: ['report released', 'released date', 'release date', 'completion date', 'completed date', 'report date'],
-            receivedDate: ['received', 'received date', 'sample received', 'date received', 'receipt date', 'intake date'],
-            sampleId: ['sample', 'sample id', 'sampleid', 'sample number', 'id', 'sample no'],
-            testType: ['test', 'test type', 'testtype', 'analysis', 'assay']
+            clientName: ['client', 'client name', 'clientname', 'customer', 'customer name', 'hospital', 'hospital name', 'clinic', 'clinic name', 'facility'],
+            tatReport: ['tat', 'tat report', 'tatreport', 'tat date', 'turnaround', 'turnaround time', 'turnaround date', 'due date', 'target date', 'deadline', 'expected date'],
+            reportReleasedDate: ['report released', 'released date', 'release date', 'completion date', 'completed date', 'report date', 'date released', 'issued', 'issued date', 'report issued'],
+            receivedDate: ['received', 'received date', 'sample received', 'date received', 'receipt date', 'intake date', 'date in', 'collection date', 'accession date'],
+            sampleId: ['sample', 'sample id', 'sampleid', 'sample number', 'id', 'sample no', 'lab id', 'specimen id', 'barcode', 'accession number', 'accession no'],
+            testType: ['test', 'test type', 'testtype', 'analysis', 'assay', 'test name', 'procedure', 'examination']
         };
 
         // Initialize
@@ -699,21 +747,28 @@
         }
 
         function findMatchingHeader(headers, patterns) {
-            // Try exact match first (case-insensitive)
+            // Normalize function to handle different formats
+            const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
+            
+            // Try exact match first (case-insensitive, normalized spaces)
             for (const header of headers) {
-                const headerLower = header.toLowerCase().trim();
+                const headerNorm = normalize(header);
                 for (const pattern of patterns) {
-                    if (headerLower === pattern.toLowerCase()) {
+                    const patternNorm = normalize(pattern);
+                    if (headerNorm === patternNorm) {
+                        console.log(`✓ Exact match: "${header}" matched pattern "${pattern}"`);
                         return header;
                     }
                 }
             }
 
-            // Try partial match
+            // Try partial match (contains)
             for (const header of headers) {
-                const headerLower = header.toLowerCase().trim();
+                const headerNorm = normalize(header);
                 for (const pattern of patterns) {
-                    if (headerLower.includes(pattern.toLowerCase()) || pattern.toLowerCase().includes(headerLower)) {
+                    const patternNorm = normalize(pattern);
+                    if (headerNorm.includes(patternNorm) || patternNorm.includes(headerNorm)) {
+                        console.log(`✓ Partial match: "${header}" matched pattern "${pattern}"`);
                         return header;
                     }
                 }
@@ -969,7 +1024,24 @@
             
             html += '</tbody></table></div>';
             
+            // Add scroll hint if table is wide
+            const scrollHintHtml = headers.length > 8 ? '<div class="scroll-hint show">Scroll horizontally to see more columns</div>' : '';
+            
             document.getElementById('contentArea').innerHTML = html;
+            
+            // Check if table actually needs scrolling
+            setTimeout(() => {
+                const container = document.querySelector('.table-container');
+                if (container) {
+                    const needsScroll = container.scrollWidth > container.clientWidth;
+                    if (needsScroll && !scrollHintHtml) {
+                        const hint = document.createElement('div');
+                        hint.className = 'scroll-hint show';
+                        hint.textContent = 'Scroll horizontally to see more columns';
+                        container.parentNode.insertBefore(hint, container);
+                    }
+                }
+            }, 100);
         }
 
         function getTATStats(rows) {
