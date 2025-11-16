@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Sample Tracker</title>
+    <title>Lab Sample Tracker - Enhanced</title>
     <style>
         * {
             margin: 0;
@@ -150,7 +150,7 @@
             font-size: 14px;
         }
 
-        .refresh-btn {
+        .refresh-btn, .config-btn {
             padding: 10px 20px;
             background: #3498db;
             color: white;
@@ -160,8 +160,16 @@
             font-weight: 500;
         }
 
-        .refresh-btn:hover {
+        .refresh-btn:hover, .config-btn:hover {
             background: #2980b9;
+        }
+
+        .config-btn {
+            background: #9b59b6;
+        }
+
+        .config-btn:hover {
+            background: #8e44ad;
         }
 
         .tabs {
@@ -321,6 +329,14 @@
             margin: 20px;
         }
 
+        .warning {
+            background: #f39c12;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px;
+        }
+
         .tat-overdue {
             background: #ffe6e6 !important;
         }
@@ -399,27 +415,93 @@
             font-size: 16px;
         }
 
-        .filter-tags {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-
-        .filter-tag {
-            background: #3498db;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            display: flex;
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
             align-items: center;
-            gap: 5px;
+            justify-content: center;
         }
 
-        .filter-tag .remove {
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #2c3e50;
+        }
+
+        .close-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
             cursor: pointer;
-            font-weight: bold;
+        }
+
+        .close-btn:hover {
+            background: #c0392b;
+        }
+
+        .config-section {
+            margin-bottom: 20px;
+        }
+
+        .config-section h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .config-label {
+            font-weight: 500;
+            padding: 8px;
+            background: #ecf0f1;
+            border-radius: 3px;
+        }
+
+        .config-value {
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .mapping-detected {
+            color: #27ae60;
+        }
+
+        .mapping-missing {
+            color: #e74c3c;
         }
     </style>
 </head>
@@ -493,6 +575,7 @@
             <h1>Lab Sample Management System</h1>
             <div class="header-controls">
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search in current view..." onkeyup="searchTable()">
+                <button class="config-btn" onclick="showConfigModal()">⚙️ Column Mapping</button>
                 <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh Data</button>
             </div>
         </div>
@@ -501,6 +584,17 @@
 
         <div class="content-area" id="contentArea">
             <div class="loading">Initializing system</div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Column Mapping Configuration</h2>
+                <button class="close-btn" onclick="closeConfigModal()">Close</button>
+            </div>
+            <div id="configContent"></div>
         </div>
     </div>
 
@@ -514,6 +608,17 @@
         let currentSheet = '';
         let sortColumn = null;
         let sortDirection = 'asc';
+        let columnMapping = {};
+
+        // Column mapping patterns - will auto-detect from actual headers
+        const COLUMN_PATTERNS = {
+            clientName: ['client', 'client name', 'clientname', 'customer', 'customer name'],
+            tatReport: ['tat', 'tat report', 'tatreport', 'turnaround', 'turnaround time', 'due date', 'target date'],
+            reportReleasedDate: ['report released', 'released date', 'release date', 'completion date', 'completed date', 'report date'],
+            receivedDate: ['received', 'received date', 'sample received', 'date received', 'receipt date', 'intake date'],
+            sampleId: ['sample', 'sample id', 'sampleid', 'sample number', 'id', 'sample no'],
+            testType: ['test', 'test type', 'testtype', 'analysis', 'assay']
+        };
 
         // Initialize
         if (APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
@@ -543,11 +648,17 @@
                 allData = data.sheets;
                 metadata = data.metadata;
                 
+                // Auto-detect column mappings from the first sheet
+                detectColumnMappings();
+                
                 populateClientDropdown();
                 populateMonthYearDropdowns();
                 renderSheetTabs();
                 updateDataInfo();
                 showAllSheets();
+                
+                // Show warning if column detection has issues
+                validateColumnMappings();
                 
             } catch (error) {
                 document.getElementById('contentArea').innerHTML = `
@@ -560,11 +671,147 @@
             }
         }
 
+        function detectColumnMappings() {
+            // Get headers from first sheet
+            const firstSheet = Object.keys(allData)[0];
+            if (!firstSheet || !allData[firstSheet].headers) {
+                console.error('No sheet data available for column detection');
+                return;
+            }
+
+            const headers = allData[firstSheet].headers;
+            columnMapping = {};
+
+            // Try to match each required field with actual headers
+            for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                const matchedHeader = findMatchingHeader(headers, patterns);
+                if (matchedHeader) {
+                    columnMapping[field] = matchedHeader;
+                    console.log(`✓ Mapped ${field} to "${matchedHeader}"`);
+                } else {
+                    console.warn(`⚠ Could not find column for ${field}`);
+                    columnMapping[field] = null;
+                }
+            }
+
+            // Store all headers for reference
+            columnMapping._allHeaders = headers;
+        }
+
+        function findMatchingHeader(headers, patterns) {
+            // Try exact match first (case-insensitive)
+            for (const header of headers) {
+                const headerLower = header.toLowerCase().trim();
+                for (const pattern of patterns) {
+                    if (headerLower === pattern.toLowerCase()) {
+                        return header;
+                    }
+                }
+            }
+
+            // Try partial match
+            for (const header of headers) {
+                const headerLower = header.toLowerCase().trim();
+                for (const pattern of patterns) {
+                    if (headerLower.includes(pattern.toLowerCase()) || pattern.toLowerCase().includes(headerLower)) {
+                        return header;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function validateColumnMappings() {
+            const missingFields = [];
+            const requiredFields = ['clientName', 'tatReport', 'reportReleasedDate', 'receivedDate'];
+
+            for (const field of requiredFields) {
+                if (!columnMapping[field]) {
+                    missingFields.push(field);
+                }
+            }
+
+            if (missingFields.length > 0) {
+                const warningDiv = document.createElement('div');
+                warningDiv.className = 'warning';
+                warningDiv.innerHTML = `
+                    <h3>⚠️ Column Mapping Warning</h3>
+                    <p>Could not auto-detect the following columns: <strong>${missingFields.join(', ')}</strong></p>
+                    <p>Some features may not work correctly. Click "Column Mapping" to view detected columns.</p>
+                `;
+                document.getElementById('contentArea').insertAdjacentElement('afterbegin', warningDiv);
+            }
+        }
+
+        function getFieldValue(row, field) {
+            const columnName = columnMapping[field];
+            if (!columnName) return null;
+            return row[columnName];
+        }
+
+        function showConfigModal() {
+            const modal = document.getElementById('configModal');
+            const content = document.getElementById('configContent');
+            
+            let html = '<div class="config-section">';
+            html += '<h3>Detected Column Mappings</h3>';
+            html += '<p style="margin-bottom: 15px; color: #7f8c8d;">The system automatically detected these column mappings from your sheets:</p>';
+            html += '<div class="config-grid">';
+
+            for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                const detectedColumn = columnMapping[field];
+                const statusClass = detectedColumn ? 'mapping-detected' : 'mapping-missing';
+                const statusIcon = detectedColumn ? '✓' : '✗';
+                
+                html += `
+                    <div class="config-label">${field}:</div>
+                    <div class="config-value ${statusClass}">
+                        ${statusIcon} ${detectedColumn || 'Not detected'}
+                    </div>
+                `;
+            }
+
+            html += '</div></div>';
+
+            html += '<div class="config-section">';
+            html += '<h3>All Available Columns</h3>';
+            html += '<p style="margin-bottom: 15px; color: #7f8c8d;">These are all the columns found in your sheets:</p>';
+            html += '<ul style="list-style: none; padding: 0;">';
+            
+            if (columnMapping._allHeaders) {
+                columnMapping._allHeaders.forEach(header => {
+                    html += `<li style="padding: 5px; background: #f8f9fa; margin-bottom: 5px; border-radius: 3px;">• ${header}</li>`;
+                });
+            }
+
+            html += '</ul></div>';
+
+            content.innerHTML = html;
+            modal.classList.add('active');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.remove('active');
+        }
+
         function populateClientDropdown() {
             const select = document.getElementById('clientSelect');
             select.innerHTML = '<option value="">-- Select Client --</option>';
             
-            metadata.clients.forEach(client => {
+            // Extract unique clients from all sheets
+            const clients = new Set();
+            Object.values(allData).forEach(sheetData => {
+                sheetData.rows.forEach(row => {
+                    const clientName = getFieldValue(row, 'clientName');
+                    if (clientName && clientName.trim()) {
+                        clients.add(clientName.trim());
+                    }
+                });
+            });
+
+            const sortedClients = Array.from(clients).sort();
+            sortedClients.forEach(client => {
                 const option = document.createElement('option');
                 option.value = client;
                 option.textContent = client;
@@ -576,10 +823,24 @@
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                                'July', 'August', 'September', 'October', 'November', 'December'];
             
+            // Collect unique months and years from data
+            const months = new Set();
+            const years = new Set();
+
+            Object.values(allData).forEach(sheetData => {
+                sheetData.rows.forEach(row => {
+                    const receivedDate = parseDate(getFieldValue(row, 'receivedDate'));
+                    if (receivedDate) {
+                        months.add(receivedDate.getMonth() + 1);
+                        years.add(receivedDate.getFullYear());
+                    }
+                });
+            });
+
             // Month dropdown
             const monthSelect = document.getElementById('monthSelect');
             monthSelect.innerHTML = '';
-            metadata.months.forEach(monthNum => {
+            Array.from(months).sort((a, b) => a - b).forEach(monthNum => {
                 const option = document.createElement('option');
                 option.value = monthNum;
                 option.textContent = monthNames[monthNum - 1];
@@ -590,7 +851,7 @@
             ['monthYearSelect', 'yearSelect'].forEach(id => {
                 const select = document.getElementById(id);
                 select.innerHTML = '';
-                metadata.years.forEach(year => {
+                Array.from(years).sort((a, b) => b - a).forEach(year => {
                     const option = document.createElement('option');
                     option.value = year;
                     option.textContent = year;
@@ -602,12 +863,21 @@
         function updateDataInfo() {
             document.getElementById('dataInfo').style.display = 'block';
             document.getElementById('infoSheets').textContent = Object.keys(allData).length;
-            document.getElementById('infoClients').textContent = metadata.clients.length;
             
+            const clients = new Set();
             let totalSamples = 0;
+            
             Object.values(allData).forEach(sheet => {
                 totalSamples += sheet.rows.length;
+                sheet.rows.forEach(row => {
+                    const clientName = getFieldValue(row, 'clientName');
+                    if (clientName && clientName.trim()) {
+                        clients.add(clientName.trim());
+                    }
+                });
             });
+            
+            document.getElementById('infoClients').textContent = clients.size;
             document.getElementById('infoSamples').textContent = totalSamples;
         }
 
@@ -690,7 +960,8 @@
                 html += `<tr class="${rowClass}">`;
                 
                 rowKeys.forEach(key => {
-                    html += `<td>${row[key] || ''}</td>`;
+                    const value = row[key];
+                    html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
                 });
                 
                 html += '</tr>';
@@ -702,26 +973,30 @@
         }
 
         function getTATStats(rows) {
-            let pending = 0, overdue = 0, completed = 0;
+            let pending = 0, overdue = 0, completed = 0, noData = 0;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
             rows.forEach(row => {
-                const tatDate = parseDate(row.tatReport);
-                const releasedDate = row.reportReleasedDate;
+                const tatDate = parseDate(getFieldValue(row, 'tatReport'));
+                const releasedDate = getFieldValue(row, 'reportReleasedDate');
                 
-                if (releasedDate && releasedDate.trim()) {
+                // Check if report is released
+                if (releasedDate && String(releasedDate).trim()) {
                     completed++;
                 } else if (tatDate) {
+                    // Report not released yet
                     if (tatDate < today) {
                         overdue++;
                     } else {
                         pending++;
                     }
+                } else {
+                    noData++;
                 }
             });
             
-            return `
+            let html = `
                 <div class="stat-item">
                     <div class="stat-label">⏳ Pending</div>
                     <div class="stat-value">${pending}</div>
@@ -735,18 +1010,31 @@
                     <div class="stat-value">${completed}</div>
                 </div>
             `;
+
+            if (noData > 0) {
+                html += `
+                    <div class="stat-item">
+                        <div class="stat-label">⚠️ No TAT Data</div>
+                        <div class="stat-value">${noData}</div>
+                    </div>
+                `;
+            }
+            
+            return html;
         }
 
         function getTATClass(row) {
-            const tatDate = parseDate(row.tatReport);
-            const releasedDate = row.reportReleasedDate;
+            const tatDate = parseDate(getFieldValue(row, 'tatReport'));
+            const releasedDate = getFieldValue(row, 'reportReleasedDate');
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            if (releasedDate && releasedDate.trim()) {
+            // Check if report is released
+            if (releasedDate && String(releasedDate).trim()) {
                 return 'tat-completed';
             }
             
+            // Check TAT status for unreleased reports
             if (tatDate) {
                 if (tatDate < today) {
                     return 'tat-overdue';
@@ -759,20 +1047,63 @@
         }
 
         function parseDate(dateStr) {
-            if (!dateStr || dateStr === '') return null;
-            
-            const parts = dateStr.split('/');
-            if (parts.length !== 3) return null;
-            
-            const day = parseInt(parts[0]);
-            const month = parseInt(parts[1]) - 1;
-            const year = parseInt(parts[2]);
-            
-            const date = new Date(year, month, day);
+            if (!dateStr || dateStr === '' || dateStr === null || dateStr === undefined) {
+                return null;
+            }
+
+            const dateString = String(dateStr).trim();
+            if (!dateString) return null;
+
+            // Try multiple date formats
+            const formats = [
+                // DD/MM/YYYY
+                /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+                // MM/DD/YYYY
+                /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+                // YYYY-MM-DD
+                /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+                // DD-MM-YYYY
+                /^(\d{1,2})-(\d{1,2})-(\d{4})$/,
+            ];
+
+            // Try DD/MM/YYYY first (most common in lab context)
+            let match = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (match) {
+                const day = parseInt(match[1]);
+                const month = parseInt(match[2]) - 1; // JS months are 0-indexed
+                const year = parseInt(match[3]);
+                
+                const date = new Date(year, month, day);
+                
+                // Validate the date
+                if (!isNaN(date.getTime()) && 
+                    date.getDate() === day && 
+                    date.getMonth() === month && 
+                    date.getFullYear() === year) {
+                    return date;
+                }
+            }
+
+            // Try YYYY-MM-DD
+            match = dateString.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (match) {
+                const year = parseInt(match[1]);
+                const month = parseInt(match[2]) - 1;
+                const day = parseInt(match[3]);
+                
+                const date = new Date(year, month, day);
+                if (!isNaN(date.getTime())) {
+                    return date;
+                }
+            }
+
+            // Try native Date parsing as fallback
+            const date = new Date(dateString);
             if (!isNaN(date.getTime())) {
                 return date;
             }
             
+            console.warn(`Could not parse date: ${dateString}`);
             return null;
         }
 
@@ -793,21 +1124,25 @@
                 let valA = a[sortKey];
                 let valB = b[sortKey];
                 
-                // Handle dates
+                // Handle null/undefined
+                if (valA === null || valA === undefined) return 1;
+                if (valB === null || valB === undefined) return -1;
+                
+                // Try to parse as dates
                 const dateA = parseDate(valA);
                 const dateB = parseDate(valB);
                 if (dateA && dateB) {
                     return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
                 }
                 
-                // Handle numbers
+                // Try to parse as numbers
                 const numA = parseFloat(valA);
                 const numB = parseFloat(valB);
                 if (!isNaN(numA) && !isNaN(numB)) {
                     return sortDirection === 'asc' ? numA - numB : numB - numA;
                 }
                 
-                // Handle strings
+                // Handle as strings
                 valA = String(valA).toLowerCase();
                 valB = String(valB).toLowerCase();
                 
@@ -830,20 +1165,27 @@
         }
 
         function searchTable() {
-            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase().trim();
             
             if (!searchTerm) {
-                renderTable(currentView, document.querySelector('.result-header h3').textContent);
+                const currentTitle = document.querySelector('.result-header h3');
+                if (currentTitle) {
+                    const title = currentTitle.textContent.replace(' (Filtered)', '');
+                    renderTable(currentView, title);
+                }
                 return;
             }
             
             const filtered = currentView.filter(row => {
-                return Object.values(row).some(val => 
-                    String(val).toLowerCase().includes(searchTerm)
-                );
+                return Object.values(row).some(val => {
+                    if (val === null || val === undefined) return false;
+                    return String(val).toLowerCase().includes(searchTerm);
+                });
             });
             
-            renderTable(filtered, document.querySelector('.result-header h3').textContent + ` (Filtered)`);
+            const currentTitle = document.querySelector('.result-header h3');
+            const baseTitle = currentTitle ? currentTitle.textContent.replace(' (Filtered)', '') : '';
+            renderTable(filtered, baseTitle + ` (Filtered)`);
         }
 
         function toggleFilter(type) {
@@ -869,25 +1211,34 @@
                 return;
             }
             
+            if (!columnMapping.clientName) {
+                alert('Client column not detected. Please check column mapping.');
+                return;
+            }
+            
             let filteredData = [];
             let title = `Client: ${client}`;
             
             Object.values(allData).forEach(sheetData => {
                 sheetData.rows.forEach(row => {
-                    if (row.clientName === client) {
+                    const rowClient = getFieldValue(row, 'clientName');
+                    
+                    if (rowClient && rowClient.trim() === client) {
                         if (viewType === 'total') {
                             filteredData.push(row);
                         } else if (viewType === 'month') {
                             const month = parseInt(document.getElementById('monthSelect').value);
                             const year = parseInt(document.getElementById('monthYearSelect').value);
-                            const receivedDate = parseDate(row.receivedDate);
+                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate'));
                             
-                            if (receivedDate && receivedDate.getMonth() + 1 === month && receivedDate.getFullYear() === year) {
+                            if (receivedDate && 
+                                receivedDate.getMonth() + 1 === month && 
+                                receivedDate.getFullYear() === year) {
                                 filteredData.push(row);
                             }
                         } else if (viewType === 'year') {
                             const year = parseInt(document.getElementById('yearSelect').value);
-                            const receivedDate = parseDate(row.receivedDate);
+                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate'));
                             
                             if (receivedDate && receivedDate.getFullYear() === year) {
                                 filteredData.push(row);
@@ -898,7 +1249,8 @@
             });
             
             if (viewType === 'month') {
-                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                   'July', 'August', 'September', 'October', 'November', 'December'];
                 const month = monthNames[parseInt(document.getElementById('monthSelect').value) - 1];
                 const year = document.getElementById('monthYearSelect').value;
                 title += ` - ${month} ${year}`;
@@ -909,12 +1261,28 @@
                 title += ' - Total (All Time)';
             }
             
+            if (filteredData.length === 0) {
+                alert('No data found for the selected criteria');
+                return;
+            }
+            
             currentView = filteredData;
             renderTable(filteredData, title);
         }
 
         function applyTATFilter() {
             const tatStatus = document.getElementById('tatStatus').value;
+            
+            if (!columnMapping.tatReport && tatStatus !== 'completed') {
+                alert('TAT column not detected. Please check column mapping.');
+                return;
+            }
+            
+            if (!columnMapping.reportReleasedDate) {
+                alert('Report Released Date column not detected. Please check column mapping.');
+                return;
+            }
+            
             let filteredData = [];
             let title = '';
             
@@ -923,18 +1291,23 @@
             
             Object.values(allData).forEach(sheetData => {
                 sheetData.rows.forEach(row => {
-                    const tatDate = parseDate(row.tatReport);
-                    const releasedDate = row.reportReleasedDate;
+                    const tatDate = parseDate(getFieldValue(row, 'tatReport'));
+                    const releasedDate = getFieldValue(row, 'reportReleasedDate');
+                    const releasedDateStr = releasedDate ? String(releasedDate).trim() : '';
                     
                     if (tatStatus === 'completed') {
-                        if (releasedDate && releasedDate.trim()) {
+                        // Show all completed reports (with release date)
+                        if (releasedDateStr) {
                             filteredData.push(row);
                         }
-                    } else if (tatDate && (!releasedDate || !releasedDate.trim())) {
-                        if (tatStatus === 'not_crossed' && tatDate >= today) {
-                            filteredData.push(row);
-                        } else if (tatStatus === 'crossed' && tatDate < today) {
-                            filteredData.push(row);
+                    } else if (tatDate) {
+                        // Only process if TAT date exists and report not released
+                        if (!releasedDateStr) {
+                            if (tatStatus === 'not_crossed' && tatDate >= today) {
+                                filteredData.push(row);
+                            } else if (tatStatus === 'crossed' && tatDate < today) {
+                                filteredData.push(row);
+                            }
                         }
                     }
                 });
@@ -948,9 +1321,21 @@
                 title = '✅ Reports Released';
             }
             
+            if (filteredData.length === 0) {
+                alert('No samples found for the selected TAT status');
+                return;
+            }
+            
             currentView = filteredData;
             renderTable(filteredData, title);
         }
+
+        // Close modal when clicking outside
+        document.getElementById('configModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeConfigModal();
+            }
+        });
     </script>
 </body>
 </html>
