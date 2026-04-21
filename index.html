@@ -671,7 +671,7 @@
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
             // Priority 1: Client/Source identification
-            clientName: ['client name', 'client', 'center name', 'source', 'referral', 'ref by', 'hospital', 'clinic', 'account', 'customer'],
+            clientName: ['client department', 'department', 'client name', 'client', 'center name', 'source', 'referral', 'ref by', 'hospital', 'clinic', 'account', 'customer'],
             
             // Priority 2: TAT/Due Dates
             tatReport: ['tat report', 'tat date', 'tat', 'due date', 'target date', 'promised date'],
@@ -811,6 +811,28 @@
             return null;
         }
 
+        function getNormalizedClientName(name) {
+            if (!name) return "";
+            
+            // 1. Convert to Uppercase and trim
+            let clean = String(name).trim().toUpperCase();
+            
+            // 2. Remove any text in parentheses e.g. "HAEMOTOLOGY(Research)" -> "HAEMOTOLOGY"
+            clean = clean.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+            
+            // 3. Map known aliases
+            if (clean === 'CMC' || clean === 'CHRISTIAN MEDICAL COLLEGE') {
+                return 'CHRISTIAN MEDICAL COLLEGE';
+            }
+            
+            // 4. Handle common variations for Haemotology/Haematology/Heamotology
+            if (clean.includes('HAEMOTOL') || clean.includes('HAEMATOL') || clean.includes('HEAMOTOL')) {
+                return 'HAEMOTOLOGY';
+            }
+
+            return clean;
+        }
+
         function validateColumnMappings() {
             const allMissingFields = {};
             const requiredFields = ['clientName', 'tatReport', 'reportReleasedDate', 'receivedDate'];
@@ -946,14 +968,14 @@
             const select = document.getElementById('clientSelect');
             select.innerHTML = '<option value="">-- Select Client --</option>';
             
-            // Extract unique clients from all sheets
+            // Extract unique clients from all sheets with normalization
             const clients = new Set();
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
                     const clientName = getFieldValue(row, 'clientName', sheetName);
-                    if (clientName && clientName.trim()) {
-                        clients.add(clientName.trim());
+                    if (clientName) {
+                        clients.add(getNormalizedClientName(clientName));
                     }
                 });
             });
@@ -1021,8 +1043,8 @@
                 totalSamples += sheet.rows.length;
                 sheet.rows.forEach(row => {
                     const clientName = getFieldValue(row, 'clientName', sheetName);
-                    if (clientName && clientName.trim()) {
-                        clients.add(clientName.trim());
+                    if (clientName) {
+                        clients.add(getNormalizedClientName(clientName));
                     }
                 });
             });
@@ -1441,8 +1463,9 @@
                 
                 sheetData.rows.forEach(row => {
                     const rowClient = getFieldValue(row, 'clientName', sheetName);
+                    const normalizedRowClient = getNormalizedClientName(rowClient);
                     
-                    if (rowClient && rowClient.trim() === client) {
+                    if (normalizedRowClient === client) {
                         if (viewType === 'total') {
                             // Add source sheet to row
                             const rowWithSource = { ...row, _sourceSheet: sheetName };
