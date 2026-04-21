@@ -948,34 +948,48 @@
 
         function getFieldValue(row, field, sheetName = null) {
             const targetSheet = sheetName || currentSheet;
-            
-            if (!targetSheet || !columnMappings[targetSheet]) {
-                return null;
-            }
+            if (!targetSheet || !columnMappings[targetSheet]) return null;
             
             const mapping = columnMappings[targetSheet];
             const columnName = mapping[field];
-            
             if (!columnName) return null;
 
-            // Smart Extraction: Try various ways to find the property in the row object
-            // 1. Exact match (fastest)
-            if (row[columnName] !== undefined && row[columnName] !== null) return row[columnName];
+            // Normalize for comparison
+            const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
+            const targetNorm = normalize(columnName);
 
-            // 2. Trimmed match
-            const trimmedName = columnName.trim();
-            if (row[trimmedName] !== undefined) return row[trimmedName];
-
-            // 3. Case-insensitive search through all keys
+            // 1. Direct object property lookups (Various normalizations)
             const rowKeys = Object.keys(row);
-            const lowerColumnName = trimmedName.toLowerCase();
-            const foundKey = rowKeys.find(key => key.trim().toLowerCase() === lowerColumnName);
-            if (foundKey) return row[foundKey];
+            
+            // Try exact, then normalized key search
+            if (row[columnName] !== undefined && row[columnName] !== null) return row[columnName];
+            
+            for (const key of rowKeys) {
+                if (normalize(key) === targetNorm) {
+                    const val = row[key];
+                    if (val !== undefined && val !== null) return val;
+                }
+            }
 
-            // 4. Fallback to Numerical Index if row is an array or indexed object
+            // 2. Numerical Index Fallback (If row is array-like or indexed by header position)
             if (mapping._allHeaders) {
                 const index = mapping._allHeaders.indexOf(columnName);
-                if (index !== -1 && row[index] !== undefined) return row[index];
+                if (index !== -1) {
+                    // Try numerical index
+                    if (row[index] !== undefined && row[index] !== null) return row[index];
+                    // Try stringified index "0", "1"...
+                    if (row[String(index)] !== undefined && row[String(index)] !== null) return row[String(index)];
+                }
+            }
+
+            // 3. Last Resort: If we are looking for clientName, and everything else failed, 
+            // check if any value in this row looks like a client keyword
+            if (field === 'clientName') {
+                const keywords = ['CMC', 'CHRISTIAN', 'HAEMOTOL', 'HAEMATOL'];
+                for (const key of rowKeys) {
+                    const val = String(row[key]).toUpperCase();
+                    if (keywords.some(kw => val.includes(kw))) return row[key];
+                }
             }
 
             return null;
