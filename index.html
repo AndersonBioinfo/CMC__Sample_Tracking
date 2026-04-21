@@ -92,29 +92,39 @@
 
         .filter-section select, .filter-section button {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: none;
-            border-radius: 4px;
+            padding: 10px 15px; /* Increased side padding */
+            margin-bottom: 12px;
+            border: 1px solid #dcdde1;
+            border-radius: 6px;
             font-size: 14px;
+            height: 44px; /* Increased height slightly */
+            outline: none;
+            box-sizing: border-box; /* Ensure padding doesn't affect width */
         }
 
         .filter-section select {
             background: white;
             cursor: pointer;
+            color: #2c3e50;
+            font-weight: 500;
+            min-width: 200px; /* Ensure a minimum width */
         }
 
         .filter-section button {
             background: #27ae60;
             color: white;
             cursor: pointer;
-            font-weight: bold;
-            margin-top: 10px;
-            transition: background 0.3s;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .filter-section button:hover {
-            background: #229954;
+            background: #2ecc71;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
         .main-content {
@@ -596,9 +606,9 @@
         <div id="tatFilter" class="filter-section">
             <label>TAT Status:</label>
             <select id="tatStatus">
-                <option value="not_crossed">⏳ TAT Not Yet Crossed (Pending)</option>
-                <option value="crossed">🚨 TAT Crossed (Report Not Released)</option>
-                <option value="completed">✅ Reports Released</option>
+                <option value="not_crossed">⏳ Ongoing</option>
+                <option value="crossed">🚨 Overdue</option>
+                <option value="completed">✅ Released</option>
             </select>
             <button onclick="applyTATFilter()">⏰ Apply Filter</button>
         </div>
@@ -660,13 +670,22 @@
 
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
-            clientName: ['client', 'client name', 'clientname', 'customer', 'customer name', 'hospital', 'hospital name', 'clinic', 'clinic name', 'facility'],
-            tatReport: ['tat', 'tat report', 'tatreport', 'tat date', 'turnaround', 'turnaround time', 'turnaround date', 'due date', 'target date', 'deadline', 'expected date'],
-            reportReleasedDate: ['report released', 'released date', 'release date', 'completion date', 'completed date', 'report date', 'date released', 'issued', 'issued date', 'report issued', 'released', 'dispatched', 'dispatch date', 'final report', 'reporting date'],
-            receivedDate: ['received', 'received date', 'sample received', 'date received', 'receipt date', 'intake date', 'date in', 'collection date', 'accession date'],
-            sampleId: ['sample', 'sample id', 'sampleid', 'sample number', 'id', 'sample no', 'lab id', 'specimen id', 'barcode', 'accession number', 'accession no'],
-            testType: ['test', 'test type', 'testtype', 'analysis', 'assay', 'test name', 'procedure', 'examination'],
-            status: ['status', 'report status', 'sample status', 'stage', 'state', 'current status']
+            // Priority 1: Client/Source identification
+            clientName: ['client name', 'client', 'center name', 'source', 'referral', 'ref by', 'hospital', 'clinic', 'account', 'customer'],
+            
+            // Priority 2: TAT/Due Dates
+            tatReport: ['tat report', 'tat date', 'tat', 'due date', 'target date', 'promised date'],
+            
+            // Priority 3: Completion/Release Dates
+            reportReleasedDate: ['released date', 'release date', 'report released', 'dispatched date', 'completion date', 'final report', 'issued date'],
+            
+            // Priority 4: Inward/Received Dates (Most common to be named just 'Date')
+            receivedDate: ['received date', 'received', 'reg date', 'registration date', 'entry date', 'inward date', 'date of receipt', 'booking date', 'date'],
+            
+            // Others
+            sampleId: ['sample id', 'sample number', 'sample no', 'lab id', 'id', 'barcode', 'uhid'],
+            testType: ['test name', 'test type', 'test', 'analysis', 'assay', 'procedure'],
+            status: ['status', 'report status', 'sample status', 'process status']
         };
 
         // Initialize
@@ -757,30 +776,35 @@
         }
 
         function findMatchingHeader(headers, patterns) {
-            // Normalize function to handle different formats
             const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
             
-            // Try exact match first (case-insensitive, normalized spaces)
+            // Match Phase 1: Exact matches (Highest Accuracy)
             for (const header of headers) {
-                const headerNorm = normalize(header);
+                const hNorm = normalize(header);
                 for (const pattern of patterns) {
-                    const patternNorm = normalize(pattern);
-                    if (headerNorm === patternNorm) {
-                        console.log(`✓ Exact match: "${header}" matched pattern "${pattern}"`);
-                        return header;
-                    }
+                    if (hNorm === normalize(pattern)) return header;
                 }
             }
 
-            // Try partial match (contains)
+            // Match Phase 2: Starts-with matches (High Accuracy)
+            // e.g., "Client Name" matches Pattern "Client"
             for (const header of headers) {
-                const headerNorm = normalize(header);
+                const hNorm = normalize(header);
                 for (const pattern of patterns) {
-                    const patternNorm = normalize(pattern);
-                    if (headerNorm.includes(patternNorm) || patternNorm.includes(headerNorm)) {
-                        console.log(`✓ Partial match: "${header}" matched pattern "${pattern}"`);
-                        return header;
-                    }
+                    const pNorm = normalize(pattern);
+                    if (pNorm.length > 2 && hNorm.startsWith(pNorm)) return header;
+                }
+            }
+
+            // Match Phase 3: Contains matches (Fallback)
+            // e.g., "Sample Received Date" matches Pattern "Received Date"
+            for (const header of headers) {
+                const hNorm = normalize(header);
+                for (const pattern of patterns) {
+                    const pNorm = normalize(pattern);
+                    // IMPORTANT: The spreadsheet header must CONTAIN our pattern, not the other way around.
+                    // This prevents a header like "Date" from Matching "Received Date" accidentally.
+                    if (pNorm.length > 2 && hNorm.includes(pNorm)) return header;
                 }
             }
 
@@ -1007,11 +1031,44 @@
             document.getElementById('infoSamples').textContent = totalSamples;
         }
 
+        function getSortedSheetNames() {
+            const sheetNames = Object.keys(allData);
+            const months = {
+                'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+                'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+            };
+
+            return sheetNames.sort((a, b) => {
+                const parse = (s) => {
+                    const parts = s.toLowerCase().trim().split(/\s+/);
+                    if (parts.length < 2) return { m: -1, y: -1 };
+                    // Match the first 3 letters for month (e.g., "Jan" or "January")
+                    const m = months[parts[0].substring(0, 3)] ?? -1;
+                    const y = parseInt(parts[1]) || -1;
+                    return { m, y };
+                };
+
+                const da = parse(a);
+                const db = parse(b);
+
+                // If parsing failed for one or both, handle gracefully
+                if (da.y === -1 || db.y === -1) {
+                    if (da.y === db.y) return a.localeCompare(b);
+                    return db.y - da.y;
+                }
+
+                // Sort by Year (Descending), then Month (Descending)
+                if (da.y !== db.y) return db.y - da.y;
+                return db.m - da.m;
+            });
+        }
+
         function renderSheetTabs() {
             const tabsContainer = document.getElementById('sheetTabs');
             tabsContainer.innerHTML = '';
             
-            Object.keys(allData).forEach(sheetName => {
+            const sortedSheets = getSortedSheetNames();
+            sortedSheets.forEach(sheetName => {
                 const tab = document.createElement('button');
                 tab.className = 'tab';
                 tab.textContent = sheetName;
@@ -1024,8 +1081,9 @@
             document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             
-            if (Object.keys(allData).length > 0) {
-                const firstSheet = Object.keys(allData)[0];
+            const sortedSheets = getSortedSheetNames();
+            if (sortedSheets.length > 0) {
+                const firstSheet = sortedSheets[0]; // Now the most recent
                 displaySheet(firstSheet);
             }
         }
@@ -1485,11 +1543,11 @@
             });
             
             if (tatStatus === 'not_crossed') {
-                title = '⏳ TAT Not Yet Crossed (Pending Reports)';
+                title = '⏳ Ongoing Reports';
             } else if (tatStatus === 'crossed') {
-                title = '🚨 TAT Crossed (Report Not Released)';
+                title = '🚨 Overdue Reports';
             } else {
-                title = '✅ Reports Released';
+                title = '✅ Released Reports';
             }
             
             if (filteredData.length === 0) {
