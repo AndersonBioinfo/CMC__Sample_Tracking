@@ -793,89 +793,101 @@
         }
 
         function detectColumnMappings() {
-            // Detect column mappings for EACH sheet individually
             columnMappings = {};
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
                 if (!sheetData) return;
 
-                const headers = sheetData.headers || [];
+                let headers = sheetData.headers || [];
                 const rows = sheetData.rows || [];
-                const sheetMapping = { _sheetName: sheetName, _allHeaders: headers };
+                
+                // Deep Integration: Sometimes "headers" are actually the first row of data
+                // or the real headers are hidden a few rows down.
+                let bestHeaders = headers;
+                let maxMatches = 0;
 
-                // Phase 1: Try to match from standard headers
-                for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-                    sheetMapping[field] = findMatchingHeader(headers, patterns);
+                // Test Header Row 0 (Standard)
+                const testRow = (h) => {
+                    let matches = 0;
+                    ['clientName', 'tatReport', 'sampleId', 'status'].forEach(f => {
+                        if (findMatchingHeader(h, COLUMN_PATTERNS[f])) matches++;
+                    });
+                    return matches;
+                };
+
+                maxMatches = testRow(headers);
+
+                // Scan first 10 rows of DATA to see if any look more like a header row
+                for (let i = 0; i < Math.min(10, rows.length); i++) {
+                    const rowKeys = Object.keys(rows[i]);
+                    const rowValues = Object.values(rows[i]).map(v => String(v));
+                    
+                    // Test keys
+                    const keyMatches = testRow(rowKeys);
+                    if (keyMatches > maxMatches) {
+                        maxMatches = keyMatches;
+                        bestHeaders = rowKeys;
+                    }
+                    
+                    // Test values (Sometimes values are the headers in raw exports)
+                    const valMatches = testRow(rowValues);
+                    if (valMatches > maxMatches) {
+                        maxMatches = valMatches;
+                        bestHeaders = rowValues;
+                    }
                 }
 
-                // Phase 2: If critical mappings are missing, search for headers in the first 5 data rows
-                // (Sometimes the "header row" is actually Row 2 or 3 in the Excel file)
-                const criticalFields = ['clientName', 'tatReport'];
-                const needsSelfHealing = criticalFields.some(f => !sheetMapping[f]);
+                const sheetMapping = { _sheetName: sheetName, _allHeaders: bestHeaders, _indices: {} };
 
-                if (needsSelfHealing && rows.length > 0) {
-                    console.log(`🔍 [${sheetName}] Attempting self-healing matching...`);
+                // Phase 1: Map headers to field names
+                for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                    const matchedHeader = findMatchingHeader(bestHeaders, patterns);
+                    sheetMapping[field] = matchedHeader;
                     
-                    for (let i = 0; i < Math.min(5, rows.length); i++) {
-                        const rowKeys = Object.keys(rows[i]);
-                        for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-                            if (sheetMapping[field]) continue; // Already found
-                            
-                            const matched = findMatchingHeader(rowKeys, patterns);
-                            if (matched) {
-                                sheetMapping[field] = matched;
-                                console.log(`✨ [${sheetName}] Found misplaced header "${matched}" in data row ${i+1}`);
-                            }
-                        }
+                    // Store the numerical INDEX for rigid extraction
+                    if (matchedHeader) {
+                        sheetMapping._indices[field] = bestHeaders.indexOf(matchedHeader);
                     }
+                }
 
-                    // Phase 3: Content-Based Identification (Fuzzy Guessing)
-                    // If Client Name is still missing, check if any column contains known client keywords
-                    if (!sheetMapping.clientName) {
-                        const clientKeywords = ['CMC', 'CHRISTIAN', 'HAEMOTOL', 'HAEMATOL'];
-                        const keys = Object.keys(rows[0]);
-                        
-                        for (const key of keys) {
-                            const sampleValues = rows.slice(0, 10).map(r => String(r[key]).toUpperCase());
-                            const looksLikeClient = sampleValues.some(val => 
-                                clientKeywords.some(kw => val.includes(kw))
-                            );
-                            
-                            if (looksLikeClient) {
-                                sheetMapping.clientName = key;
-                                console.log(`🎯 [${sheetName}] Identified "${key}" as Client column by content analysis.`);
-                                break;
-                            }
+                // Phase 2: Content-Based Identification (Fuzzy Guessing)
+                if (!sheetMapping.clientName && rows.length > 0) {
+                    const clientKeywords = ['CMC', 'CHRISTIAN', 'HAEMOTOL', 'HAEMATOL'];
+                    const sampleRow = rows[0];
+                    const keys = Object.keys(sampleRow);
+                    
+                    for (let idx = 0; idx < keys.length; idx++) {
+                        const colKey = keys[idx];
+                        const sampleValues = rows.slice(0, 15).map(r => String(r[colKey] || '').toUpperCase());
+                        if (sampleValues.some(val => clientKeywords.some(kw => val.includes(kw)))) {
+                            sheetMapping.clientName = colKey;
+                            sheetMapping._indices.clientName = idx;
+                            break;
                         }
                     }
                 }
 
                 columnMappings[sheetName] = sheetMapping;
             });
-            
-            console.log('Column mappings updated:', columnMappings);
         }
 
         function findMatchingHeader(headers, patterns) {
             if (!headers || !headers.length) return null;
-            
-            // Refined normalization: handles non-breaking spaces, multi-spaces, etc.
             const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
-            
-            const normalizedHeaders = headers.map(h => ({ original: h, normalized: normalize(h) }));
             const normalizedPatterns = patterns.map(p => normalize(p));
 
             // 1. Exact Match
-            for (const h of normalizedHeaders) {
-                if (normalizedPatterns.includes(h.normalized)) return h.original;
+            for (const h of headers) {
+                if (normalizedPatterns.includes(normalize(h))) return h;
             }
 
-            // 2. Partial/Contains Match
-            for (const h of normalizedHeaders) {
+            // 2. Contains Match
+            for (const h of headers) {
+                const hn = normalize(h);
+                if (hn.length < 3) continue;
                 for (const p of normalizedPatterns) {
-                    if (p.length > 3 && h.normalized.includes(p)) return h.original;
-                    if (h.normalized.length > 3 && p.includes(h.normalized)) return h.original;
+                    if (p.length > 3 && (hn.includes(p) || p.includes(hn))) return h;
                 }
             }
 
@@ -951,43 +963,39 @@
             if (!targetSheet || !columnMappings[targetSheet]) return null;
             
             const mapping = columnMappings[targetSheet];
-            const columnName = mapping[field];
-            if (!columnName) return null;
-
+            const colName = mapping[field];
+            const colIndex = mapping._indices[field];
+            
             // Normalize for comparison
             const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
-            const targetNorm = normalize(columnName);
+            
+            // 1. Try by Numerical Index if available (MOST RELIABLE)
+            if (colIndex !== undefined) {
+                // Try row[index] or row[String(index)]
+                if (row[colIndex] !== undefined && row[colIndex] !== null) return row[colIndex];
+                const keyByIndex = Object.keys(row)[colIndex];
+                if (keyByIndex && row[keyByIndex] !== undefined) return row[keyByIndex];
+            }
 
-            // 1. Direct object property lookups (Various normalizations)
-            const rowKeys = Object.keys(row);
-            
-            // Try exact, then normalized key search
-            if (row[columnName] !== undefined && row[columnName] !== null) return row[columnName];
-            
-            for (const key of rowKeys) {
-                if (normalize(key) === targetNorm) {
-                    const val = row[key];
-                    if (val !== undefined && val !== null) return val;
+            // 2. Try by Column Name Property
+            if (colName) {
+                if (row[colName] !== undefined && row[colName] !== null) return row[colName];
+                
+                // Case-insensitive/Normalized search through available keys
+                const rowKeys = Object.keys(row);
+                const targetNorm = normalize(colName);
+                for (const key of rowKeys) {
+                    if (normalize(key) === targetNorm) {
+                        return row[key];
+                    }
                 }
             }
 
-            // 2. Numerical Index Fallback (If row is array-like or indexed by header position)
-            if (mapping._allHeaders) {
-                const index = mapping._allHeaders.indexOf(columnName);
-                if (index !== -1) {
-                    // Try numerical index
-                    if (row[index] !== undefined && row[index] !== null) return row[index];
-                    // Try stringified index "0", "1"...
-                    if (row[String(index)] !== undefined && row[String(index)] !== null) return row[String(index)];
-                }
-            }
-
-            // 3. Last Resort: If we are looking for clientName, and everything else failed, 
-            // check if any value in this row looks like a client keyword
+            // 3. Last Resort: Client-specific keyword scan
             if (field === 'clientName') {
                 const keywords = ['CMC', 'CHRISTIAN', 'HAEMOTOL', 'HAEMATOL'];
-                for (const key of rowKeys) {
-                    const val = String(row[key]).toUpperCase();
+                for (const key of Object.keys(row)) {
+                    const val = String(row[key] || '').toUpperCase();
                     if (keywords.some(kw => val.includes(kw))) return row[key];
                 }
             }
