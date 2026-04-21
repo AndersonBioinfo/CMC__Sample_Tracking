@@ -673,14 +673,14 @@
             // Priority 1: Client/Source identification
             clientName: ['client department', 'department', 'client name', 'client', 'center name', 'source', 'referral', 'ref by', 'hospital', 'clinic', 'account', 'customer'],
             
-            // Priority 2: TAT/Due Dates
-            tatReport: ['tat report', 'tat date', 'tat', 'due date', 'target date', 'promised date'],
+            // Priority 2: TAT/Due Dates (Crucial for Overdue calculation)
+            tatReport: ['tat report', 'tat date', 'tat', 'due date', 'target date', 'promised date', 'dispatch date'],
             
             // Priority 3: Completion/Release Dates
             reportReleasedDate: ['released date', 'release date', 'report released', 'dispatched date', 'completion date', 'final report', 'issued date'],
             
-            // Priority 4: Inward/Received Dates (Most common to be named just 'Date')
-            receivedDate: ['received date', 'received', 'reg date', 'registration date', 'entry date', 'inward date', 'date of receipt', 'booking date', 'date'],
+            // Priority 4: Inward/Received Dates (Used for Month/Year filtering)
+            receivedDate: ['received date', 'received', 'reg date', 'registration date', 'entry date', 'inward date', 'date of receipt', 'booking date'],
             
             // Others
             sampleId: ['sample id', 'sample number', 'sample no', 'lab id', 'id', 'barcode', 'uhid'],
@@ -786,25 +786,25 @@
                 }
             }
 
-            // Match Phase 2: Starts-with matches (High Accuracy)
-            // e.g., "Client Name" matches Pattern "Client"
+            // Match Phase 2: Pattern is contained in Header
+            // e.g., "Received Date" matches Pattern "Received"
             for (const header of headers) {
                 const hNorm = normalize(header);
                 for (const pattern of patterns) {
                     const pNorm = normalize(pattern);
-                    if (pNorm.length > 2 && hNorm.startsWith(pNorm)) return header;
+                    if (pNorm.length > 2 && hNorm.includes(pNorm)) return header;
                 }
             }
 
-            // Match Phase 3: Contains matches (Fallback)
-            // e.g., "Sample Received Date" matches Pattern "Received Date"
+            // Match Phase 3: Header is contained in Pattern (BUT more strict to avoid 'Date' confusion)
+            // e.g., "ID" matches Pattern "Sample ID"
             for (const header of headers) {
                 const hNorm = normalize(header);
+                // Skip very short generic headers for phase 3 unless they are specific IDs
+                if (hNorm.length < 3 && hNorm !== 'id') continue;
                 for (const pattern of patterns) {
                     const pNorm = normalize(pattern);
-                    // IMPORTANT: The spreadsheet header must CONTAIN our pattern, not the other way around.
-                    // This prevents a header like "Date" from Matching "Received Date" accidentally.
-                    if (pNorm.length > 2 && hNorm.includes(pNorm)) return header;
+                    if (pNorm.includes(hNorm)) return header;
                 }
             }
 
@@ -981,12 +981,16 @@
             });
 
             const sortedClients = Array.from(clients).sort();
-            sortedClients.forEach(client => {
-                const option = document.createElement('option');
-                option.value = client;
-                option.textContent = client;
-                select.appendChild(option);
-            });
+            if (sortedClients.length === 0) {
+                select.innerHTML = '<option value="">-- No Client Column Detected --</option>';
+            } else {
+                sortedClients.forEach(client => {
+                    const option = document.createElement('option');
+                    option.value = client;
+                    option.textContent = client;
+                    select.appendChild(option);
+                });
+            }
         }
 
         function populateMonthYearDropdowns() {
