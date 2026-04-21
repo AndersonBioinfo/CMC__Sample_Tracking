@@ -918,17 +918,20 @@
 
         function validateColumnMappings() {
             const allMissingFields = {};
-            const requiredFields = ['clientName', 'tatReport', 'reportReleasedDate', 'receivedDate'];
+            const requiredFields = ['clientName', 'reportReleasedDate', 'receivedDate'];
 
-            // Check each sheet for missing fields
             Object.keys(columnMappings).forEach(sheetName => {
                 const mapping = columnMappings[sheetName];
                 const missingFields = [];
                 
+                // Fields that have NO fallback
                 for (const field of requiredFields) {
-                    if (!mapping[field]) {
-                        missingFields.push(field);
-                    }
+                    if (!mapping[field]) missingFields.push(field);
+                }
+                
+                // TAT Report has a fallback to receivedDate, so only warn if BOTH are missing
+                if (!mapping.tatReport && !mapping.receivedDate) {
+                    missingFields.push('tatReport');
                 }
                 
                 if (missingFields.length > 0) {
@@ -936,18 +939,18 @@
                 }
             });
 
-            // Show warning if any sheets have missing fields
+            // Show warning if ANY sheet has NO way to track data
             if (Object.keys(allMissingFields).length > 0) {
                 const warningDiv = document.createElement('div');
                 warningDiv.className = 'warning';
-                let warningHTML = '<h3>⚠️ Column Mapping Warning</h3>';
+                let warningHTML = '<h3>⚠️ Column Mapping Note</h3>';
                 
                 Object.keys(allMissingFields).forEach(sheetName => {
                     const missing = allMissingFields[sheetName];
-                    warningHTML += `<p><strong>${sheetName}:</strong> Could not auto-detect: <strong>${missing.join(', ')}</strong></p>`;
+                    warningHTML += `<p><strong>${sheetName}:</strong> Missing core columns: <strong>${missing.join(', ')}</strong></p>`;
                 });
                 
-                warningHTML += '<p>Some features may not work correctly for these sheets. Click "Column Mapping" to view detected columns.</p>';
+                warningHTML += '<p>Note: Older sheets without a TAT column automatically use "Received Date" (Inward Date) as a fallback.</p>';
                 warningDiv.innerHTML = warningHTML;
                 
                 // Only show warning once
