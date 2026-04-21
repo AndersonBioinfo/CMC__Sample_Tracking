@@ -1055,7 +1055,14 @@
                 
                 // 2. Raw Data Snippet (Crucial for debugging)
                 if (sheetData && sheetData.rows && sheetData.rows.length > 0) {
-                    html += '<h5 style="color: #7f8c8d; margin-top: 15px; font-size: 11px; text-transform: uppercase;">📊 Raw Data Snippet (Top 3 Rows):</h5>';
+                    const firstRow = sheetData.rows[0];
+                    html += '<h5 style="color: #7f8c8d; margin-top: 15px; font-size: 11px; text-transform: uppercase;">📊 Technical Row Inspector (Row 1):</h5>';
+                    html += '<div style="background: #2d3436; color: #fab1a0; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 10px; margin-top: 5px; overflow-x: auto;">';
+                    html += `JSON Keys: ${Object.keys(firstRow).join(', ')}<br><br>`;
+                    html += `JSON Data: ${JSON.stringify(firstRow)}`;
+                    html += '</div>';
+
+                    html += '<h5 style="color: #7f8c8d; margin-top: 15px; font-size: 11px; text-transform: uppercase;">📋 Formatted View (Top 3 Rows):</h5>';
                     html += '<div style="overflow-x: auto; max-height: 200px; border: 1px solid #eee; margin-top: 5px;">';
                     html += '<table style="font-size: 10px; min-width: 1000px; border-collapse: collapse; background: white;">';
                     
