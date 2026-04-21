@@ -664,13 +664,16 @@
         </div>
 
         <div id="dataInfo" class="available-data-info" style="display: none;">
-            <h4>📅 Available Data</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h4 style="margin: 0;">📅 Data Status</h4>
+                <div id="mappingBadge" style="padding: 2px 6px; border-radius: 4px; font-size: 10px; background: #27ae60;">Ready</div>
+            </div>
             <div class="info-grid">
                 <span class="info-label">Sheets:</span>
                 <span class="info-value" id="infoSheets">-</span>
                 <span class="info-label">Clients:</span>
                 <span class="info-value" id="infoClients">-</span>
-                <span class="info-label">Total Samples:</span>
+                <span class="info-label">Samples:</span>
                 <span class="info-value" id="infoSamples">-</span>
             </div>
         </div>
@@ -795,66 +798,84 @@
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                if (!sheetData || !sheetData.headers) {
-                    console.warn(`No headers found for sheet: ${sheetName}`);
-                    return;
+                if (!sheetData) return;
+
+                const headers = sheetData.headers || [];
+                const rows = sheetData.rows || [];
+                const sheetMapping = { _sheetName: sheetName, _allHeaders: headers };
+
+                // Phase 1: Try to match from standard headers
+                for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                    sheetMapping[field] = findMatchingHeader(headers, patterns);
                 }
 
-                const headers = sheetData.headers;
-                const sheetMapping = {};
+                // Phase 2: If critical mappings are missing, search for headers in the first 5 data rows
+                // (Sometimes the "header row" is actually Row 2 or 3 in the Excel file)
+                const criticalFields = ['clientName', 'tatReport'];
+                const needsSelfHealing = criticalFields.some(f => !sheetMapping[f]);
 
-                // Try to match each required field with actual headers
-                for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
-                    const matchedHeader = findMatchingHeader(headers, patterns);
-                    if (matchedHeader) {
-                        sheetMapping[field] = matchedHeader;
-                        console.log(`✓ [${sheetName}] Mapped ${field} to "${matchedHeader}"`);
-                    } else {
-                        console.warn(`⚠ [${sheetName}] Could not find column for ${field}`);
-                        sheetMapping[field] = null;
+                if (needsSelfHealing && rows.length > 0) {
+                    console.log(`🔍 [${sheetName}] Attempting self-healing matching...`);
+                    
+                    for (let i = 0; i < Math.min(5, rows.length); i++) {
+                        const rowKeys = Object.keys(rows[i]);
+                        for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
+                            if (sheetMapping[field]) continue; // Already found
+                            
+                            const matched = findMatchingHeader(rowKeys, patterns);
+                            if (matched) {
+                                sheetMapping[field] = matched;
+                                console.log(`✨ [${sheetName}] Found misplaced header "${matched}" in data row ${i+1}`);
+                            }
+                        }
+                    }
+
+                    // Phase 3: Content-Based Identification (Fuzzy Guessing)
+                    // If Client Name is still missing, check if any column contains known client keywords
+                    if (!sheetMapping.clientName) {
+                        const clientKeywords = ['CMC', 'CHRISTIAN', 'HAEMOTOL', 'HAEMATOL'];
+                        const keys = Object.keys(rows[0]);
+                        
+                        for (const key of keys) {
+                            const sampleValues = rows.slice(0, 10).map(r => String(r[key]).toUpperCase());
+                            const looksLikeClient = sampleValues.some(val => 
+                                clientKeywords.some(kw => val.includes(kw))
+                            );
+                            
+                            if (looksLikeClient) {
+                                sheetMapping.clientName = key;
+                                console.log(`🎯 [${sheetName}] Identified "${key}" as Client column by content analysis.`);
+                                break;
+                            }
+                        }
                     }
                 }
 
-                // Store all headers for reference
-                sheetMapping._allHeaders = headers;
-                sheetMapping._sheetName = sheetName;
-                
                 columnMappings[sheetName] = sheetMapping;
             });
             
-            console.log('Column mappings created for all sheets:', Object.keys(columnMappings));
+            console.log('Column mappings updated:', columnMappings);
         }
 
         function findMatchingHeader(headers, patterns) {
-            const normalize = (str) => str.toLowerCase().trim().replace(/\s+/g, ' ');
+            if (!headers || !headers.length) return null;
             
-            // Match Phase 1: Exact matches (Highest Accuracy)
-            for (const header of headers) {
-                const hNorm = normalize(header);
-                for (const pattern of patterns) {
-                    if (hNorm === normalize(pattern)) return header;
-                }
+            // Refined normalization: handles non-breaking spaces, multi-spaces, etc.
+            const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
+            
+            const normalizedHeaders = headers.map(h => ({ original: h, normalized: normalize(h) }));
+            const normalizedPatterns = patterns.map(p => normalize(p));
+
+            // 1. Exact Match
+            for (const h of normalizedHeaders) {
+                if (normalizedPatterns.includes(h.normalized)) return h.original;
             }
 
-            // Match Phase 2: Pattern is contained in Header
-            // e.g., "Received Date" matches Pattern "Received"
-            for (const header of headers) {
-                const hNorm = normalize(header);
-                for (const pattern of patterns) {
-                    const pNorm = normalize(pattern);
-                    if (pNorm.length > 2 && hNorm.includes(pNorm)) return header;
-                }
-            }
-
-            // Match Phase 3: Header is contained in Pattern (BUT more strict to avoid 'Date' confusion)
-            // e.g., "ID" matches Pattern "Sample ID"
-            for (const header of headers) {
-                const hNorm = normalize(header);
-                // Skip very short generic headers for phase 3 unless they are specific IDs
-                if (hNorm.length < 3 && hNorm !== 'id') continue;
-                for (const pattern of patterns) {
-                    const pNorm = normalize(pattern);
-                    if (pNorm.includes(hNorm)) return header;
+            // 2. Partial/Contains Match
+            for (const h of normalizedHeaders) {
+                for (const p of normalizedPatterns) {
+                    if (p.length > 3 && h.normalized.includes(p)) return h.original;
+                    if (h.normalized.length > 3 && p.includes(h.normalized)) return h.original;
                 }
             }
 
@@ -992,36 +1013,57 @@
             const content = document.getElementById('configContent');
             
             let html = '<div class="config-section">';
-            html += '<h3>Detected Column Mappings (Per Sheet)</h3>';
-            html += '<p style="margin-bottom: 15px; color: #7f8c8d;">The system automatically detected these column mappings for each sheet:</p>';
+            html += '<h3>🔍 Diagnostic Column Mapping</h3>';
+            html += '<p style="margin-bottom: 20px; color: #7f8c8d; font-size: 14px;">If dropdowns are empty, check if the columns are detected correctly (✓) below. The system automatically searches headers and data content to map your fields.</p>';
             
-            // Show mappings for each sheet
             Object.keys(columnMappings).forEach(sheetName => {
                 const mapping = columnMappings[sheetName];
-                html += `<h4 style="color: #3498db; margin-top: 20px; margin-bottom: 10px;">📄 ${sheetName}</h4>`;
-                html += '<div class="config-grid">';
+                const sheetData = allData[sheetName];
                 
+                html += `<div style="background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 25px;">`;
+                html += `<h4 style="color: #2c3e50; margin: 0 0 15px 0; border-bottom: 2px solid #3498db; display: inline-block;">📄 ${sheetName}</h4>`;
+                
+                // 1. Mapping Status
+                html += '<div class="config-grid" style="margin-bottom: 15px;">';
                 for (const [field, patterns] of Object.entries(COLUMN_PATTERNS)) {
                     const detectedColumn = mapping[field];
                     const statusClass = detectedColumn ? 'mapping-detected' : 'mapping-missing';
                     const statusIcon = detectedColumn ? '✓' : '✗';
                     
                     html += `
-                        <div class="config-label">${field}:</div>
-                        <div class="config-value ${statusClass}">
-                            ${statusIcon} ${detectedColumn || 'Not detected'}
+                        <div class="config-label" style="font-size: 12px;">${field}:</div>
+                        <div class="config-value ${statusClass}" style="font-size: 12px; font-weight: bold;">
+                            ${statusIcon} ${detectedColumn || 'Not found'}
                         </div>
                     `;
                 }
-                
                 html += '</div>';
                 
-                // Show all available columns for this sheet
-                html += '<h5 style="color: #7f8c8d; margin-top: 10px; font-size: 13px;">Available columns in this sheet:</h5>';
-                html += '<div style="font-size: 11px; color: #95a5a6; margin-bottom: 10px;">';
-                if (mapping._allHeaders) {
-                    html += mapping._allHeaders.join(', ');
+                // 2. Raw Data Snippet (Crucial for debugging)
+                if (sheetData && sheetData.rows && sheetData.rows.length > 0) {
+                    html += '<h5 style="color: #7f8c8d; margin-top: 15px; font-size: 11px; text-transform: uppercase;">📊 Raw Data Snippet (Top 3 Rows):</h5>';
+                    html += '<div style="overflow-x: auto; max-height: 200px; border: 1px solid #eee; margin-top: 5px;">';
+                    html += '<table style="font-size: 10px; min-width: 1000px; border-collapse: collapse; background: white;">';
+                    
+                    // Snippet Headers
+                    const snippetHeaders = sheetData.headers || Object.keys(sheetData.rows[0]);
+                    html += '<thead><tr>';
+                    snippetHeaders.forEach(h => html += `<th style="padding: 4px; background: #eee; color: #333; border: 1px solid #ddd;">${h}</th>`);
+                    html += '</tr></thead><tbody>';
+                    
+                    // Snippet Rows
+                    sheetData.rows.slice(0, 3).forEach(row => {
+                        html += '<tr>';
+                        snippetHeaders.forEach(h => {
+                            const val = row[h] !== undefined ? row[h] : '';
+                            html += `<td style="padding: 4px; border: 1px solid #eee; color: #666; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${val}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
                 }
+                
                 html += '</div>';
             });
 
@@ -1124,18 +1166,39 @@
             
             const clients = new Set();
             let totalSamples = 0;
+            let totalColumnsMapped = 0;
+            const requiredFields = ['clientName', 'tatReport'];
             
             Object.keys(allData).forEach(sheetName => {
                 const sheet = allData[sheetName];
+                const mapping = columnMappings[sheetName];
                 totalSamples += sheet.rows.length;
+                
                 sheet.rows.forEach(row => {
                     const clientName = getFieldValue(row, 'clientName', sheetName);
                     if (clientName) {
                         clients.add(getNormalizedClientName(clientName));
                     }
                 });
+
+                requiredFields.forEach(f => { if (mapping[f]) totalColumnsMapped++; });
             });
             
+            // Update mapping status badge
+            const badge = document.getElementById('mappingBadge');
+            const mapRatio = totalColumnsMapped / (Object.keys(allData).length * requiredFields.length);
+            
+            if (mapRatio === 1) {
+                badge.textContent = 'Excellent';
+                badge.style.background = '#27ae60';
+            } else if (mapRatio > 0.5) {
+                badge.textContent = 'Partial';
+                badge.style.background = '#f39c12';
+            } else {
+                badge.textContent = 'Check Headers';
+                badge.style.background = '#e74c3c';
+            }
+
             document.getElementById('infoClients').textContent = clients.size;
             document.getElementById('infoSamples').textContent = totalSamples;
         }
