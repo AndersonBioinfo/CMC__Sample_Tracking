@@ -604,13 +604,63 @@
             <span>⏰</span> TAT Wise Segregation
         </div>
         <div id="tatFilter" class="filter-section">
-            <label>TAT Status:</label>
-            <select id="tatStatus">
-                <option value="not_crossed">⏳ Ongoing</option>
-                <option value="crossed">🚨 Overdue</option>
-                <option value="completed">✅ Released</option>
-            </select>
-            <button onclick="applyTATFilter()">⏰ Apply Filter</button>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="tatStatus">Select Status:</label>
+                    <select id="tatStatus" onchange="toggleTATDatePickers()">
+                        <option value="not_crossed">Ongoing</option>
+                        <option value="crossed">Overdue</option>
+                        <option value="completed">Released</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="tatViewType">View By:</label>
+                    <select id="tatViewType" onchange="toggleTATDatePickers()">
+                        <option value="total">Total (All Time)</option>
+                        <option value="date">Date wise (Calendar)</option>
+                        <option value="month">Month wise</option>
+                        <option value="year">Year wise</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="tatDatePicker" class="date-picker-group">
+                <label for="tatDateSelect">Select Date:</label>
+                <input type="date" id="tatDateSelect">
+            </div>
+
+            <div id="tatMonthPicker" class="date-picker-group">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="tatMonthSelect">Select Month:</label>
+                        <select id="tatMonthSelect">
+                            <option value="1">January</option><option value="2">February</option>
+                            <option value="3">March</option><option value="4">April</option>
+                            <option value="5">May</option><option value="6">June</option>
+                            <option value="7">July</option><option value="8">August</option>
+                            <option value="9">September</option><option value="10">October</option>
+                            <option value="11">November</option><option value="12">December</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="tatMonthYearSelect">Select Year:</label>
+                        <select id="tatMonthYearSelect">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tatYearPicker" class="date-picker-group">
+                <label for="tatYearSelect">Select Year:</label>
+                <select id="tatYearSelect">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+
+            <button class="apply-btn" onclick="applyTATFilter()">
+                <span class="icon">📈</span> Apply TAT Filter
+            </button>
         </div>
 
         <div id="dataInfo" class="available-data-info" style="display: none;">
@@ -876,17 +926,38 @@
         }
 
         function getFieldValue(row, field, sheetName = null) {
-            // If sheetName not provided, try to use currentSheet
             const targetSheet = sheetName || currentSheet;
             
             if (!targetSheet || !columnMappings[targetSheet]) {
-                console.warn(`No column mapping found for sheet: ${targetSheet}`);
                 return null;
             }
             
-            const columnName = columnMappings[targetSheet][field];
+            const mapping = columnMappings[targetSheet];
+            const columnName = mapping[field];
+            
             if (!columnName) return null;
-            return row[columnName];
+
+            // Smart Extraction: Try various ways to find the property in the row object
+            // 1. Exact match (fastest)
+            if (row[columnName] !== undefined && row[columnName] !== null) return row[columnName];
+
+            // 2. Trimmed match
+            const trimmedName = columnName.trim();
+            if (row[trimmedName] !== undefined) return row[trimmedName];
+
+            // 3. Case-insensitive search through all keys
+            const rowKeys = Object.keys(row);
+            const lowerColumnName = trimmedName.toLowerCase();
+            const foundKey = rowKeys.find(key => key.trim().toLowerCase() === lowerColumnName);
+            if (foundKey) return row[foundKey];
+
+            // 4. Fallback to Numerical Index if row is an array or indexed object
+            if (mapping._allHeaders) {
+                const index = mapping._allHeaders.indexOf(columnName);
+                if (index !== -1 && row[index] !== undefined) return row[index];
+            }
+
+            return null;
         }
 
         function isReportReleased(row, sheetName = null) {
@@ -997,39 +1068,51 @@
             const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
                                'July', 'August', 'September', 'October', 'November', 'December'];
             
-            // Collect unique months and years from data
             const months = new Set();
             const years = new Set();
 
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
-                    const receivedDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
-                    if (receivedDate) {
-                        months.add(receivedDate.getMonth() + 1);
-                        years.add(receivedDate.getFullYear());
+                    // Collect dates from BOTH TAT and Released for comprehensive filtering
+                    const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                    const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
+                    
+                    if (tatDate) {
+                        months.add(tatDate.getMonth() + 1);
+                        years.add(tatDate.getFullYear());
+                    }
+                    if (relDate) {
+                        months.add(relDate.getMonth() + 1);
+                        years.add(relDate.getFullYear());
                     }
                 });
             });
 
-            // Month dropdown
-            const monthSelect = document.getElementById('monthSelect');
-            monthSelect.innerHTML = '';
-            Array.from(months).sort((a, b) => a - b).forEach(monthNum => {
-                const option = document.createElement('option');
-                option.value = monthNum;
-                option.textContent = monthNames[monthNum - 1];
-                monthSelect.appendChild(option);
-            });
-            
-            // Year dropdowns
-            ['monthYearSelect', 'yearSelect'].forEach(id => {
+            // Populate all date dropdowns across all sections
+            const sortedMonths = Array.from(months).sort((a, b) => a - b);
+            const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+            ['monthSelect', 'tatMonthSelect'].forEach(id => {
                 const select = document.getElementById(id);
+                if (!select) return;
                 select.innerHTML = '';
-                Array.from(years).sort((a, b) => b - a).forEach(year => {
+                sortedMonths.forEach(m => {
                     const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
+                    option.value = m;
+                    option.textContent = monthNames[m - 1];
+                    select.appendChild(option);
+                });
+            });
+
+            ['monthYearSelect', 'yearSelect', 'tatMonthYearSelect', 'tatYearSelect'].forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                select.innerHTML = '';
+                sortedYears.forEach(y => {
+                    const option = document.createElement('option');
+                    option.value = y;
+                    option.textContent = y;
                     select.appendChild(option);
                 });
             });
@@ -1437,10 +1520,20 @@
             document.getElementById(type + 'Filter').classList.add('active');
         }
 
-        function toggleDatePickers() {
-            const viewType = document.getElementById('clientViewType').value;
-            document.getElementById('monthPicker').classList.toggle('active', viewType === 'month');
-            document.getElementById('yearPicker').classList.toggle('active', viewType === 'year');
+        function toggleTATDatePickers() {
+            const viewType = document.getElementById('tatViewType').value;
+            const status = document.getElementById('tatStatus').value;
+            
+            document.getElementById('tatDatePicker').classList.toggle('active', viewType === 'date');
+            document.getElementById('tatMonthPicker').classList.toggle('active', viewType === 'month');
+            document.getElementById('tatYearPicker').classList.toggle('active', viewType === 'year');
+            
+            // Date picker (calendar) is only relevant for Released status as per user request
+            if (viewType === 'date' && status !== 'completed') {
+                alert('Calendar filtering is only available for "Released" reports.');
+                document.getElementById('tatViewType').value = 'total';
+                toggleTATDatePickers();
+            }
         }
 
         function applyClientFilter() {
@@ -1457,41 +1550,25 @@
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                const mapping = columnMappings[sheetName];
-                
-                // Check if this sheet has the required column
-                if (!mapping || !mapping.clientName) {
-                    console.warn(`Skipping sheet ${sheetName} - no client column mapping`);
-                    return;
-                }
-                
                 sheetData.rows.forEach(row => {
-                    const rowClient = getFieldValue(row, 'clientName', sheetName);
-                    const normalizedRowClient = getNormalizedClientName(rowClient);
+                    const rowClient = getNormalizedClientName(getFieldValue(row, 'clientName', sheetName));
                     
-                    if (normalizedRowClient === client) {
+                    if (rowClient === client) {
+                        // User Request: Use TAT Report column for client month/year segregation
+                        const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                        
                         if (viewType === 'total') {
-                            // Add source sheet to row
-                            const rowWithSource = { ...row, _sourceSheet: sheetName };
-                            filteredData.push(rowWithSource);
+                            filteredData.push({ ...row, _sourceSheet: sheetName });
                         } else if (viewType === 'month') {
                             const month = parseInt(document.getElementById('monthSelect').value);
                             const year = parseInt(document.getElementById('monthYearSelect').value);
-                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
-                            
-                            if (receivedDate && 
-                                receivedDate.getMonth() + 1 === month && 
-                                receivedDate.getFullYear() === year) {
-                                const rowWithSource = { ...row, _sourceSheet: sheetName };
-                                filteredData.push(rowWithSource);
+                            if (tatDate && tatDate.getMonth() + 1 === month && tatDate.getFullYear() === year) {
+                                filteredData.push({ ...row, _sourceSheet: sheetName });
                             }
                         } else if (viewType === 'year') {
                             const year = parseInt(document.getElementById('yearSelect').value);
-                            const receivedDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
-                            
-                            if (receivedDate && receivedDate.getFullYear() === year) {
-                                const rowWithSource = { ...row, _sourceSheet: sheetName };
-                                filteredData.push(rowWithSource);
+                            if (tatDate && tatDate.getFullYear() === year) {
+                                filteredData.push({ ...row, _sourceSheet: sheetName });
                             }
                         }
                     }
@@ -1522,63 +1599,60 @@
 
         function applyTATFilter() {
             const tatStatus = document.getElementById('tatStatus').value;
+            const viewType = document.getElementById('tatViewType').value;
             
             let filteredData = [];
-            let title = '';
-            
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                const mapping = columnMappings[sheetName];
-                
-                // Check if this sheet has required columns
-                if (tatStatus !== 'completed' && (!mapping || !mapping.tatReport)) {
-                    console.warn(`Skipping sheet ${sheetName} - no TAT column mapping`);
-                    return;
-                }
-                
-                if (!mapping || !mapping.reportReleasedDate) {
-                    console.warn(`Skipping sheet ${sheetName} - no report released date mapping`);
-                    return;
-                }
-                
                 sheetData.rows.forEach(row => {
                     const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                    const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
                     const released = isReportReleased(row, sheetName);
                     
-                    if (tatStatus === 'completed') {
-                        // Show all completed reports
-                        if (released) {
-                            const rowWithSource = { ...row, _sourceSheet: sheetName };
-                            filteredData.push(rowWithSource);
-                        }
-                    } else if (tatDate) {
-                        // Only process if TAT date exists and report not released
-                        if (!released) {
-                            if (tatStatus === 'not_crossed' && tatDate >= today) {
-                                const rowWithSource = { ...row, _sourceSheet: sheetName };
-                                filteredData.push(rowWithSource);
-                            } else if (tatStatus === 'crossed' && tatDate < today) {
-                                const rowWithSource = { ...row, _sourceSheet: sheetName };
-                                filteredData.push(rowWithSource);
+                    let statusMatch = false;
+                    if (tatStatus === 'completed' && released) statusMatch = true;
+                    else if (tatStatus === 'not_crossed' && !released && tatDate && tatDate >= today) statusMatch = true;
+                    else if (tatStatus === 'crossed' && !released && tatDate && tatDate < today) statusMatch = true;
+
+                    if (statusMatch) {
+                        // User Logic: Ongoing/Overdue look at TAT Date. Released look at Release Date.
+                        const activeDate = (tatStatus === 'completed') ? relDate : tatDate;
+                        
+                        if (viewType === 'total') {
+                            filteredData.push({ ...row, _sourceSheet: sheetName });
+                        } else if (viewType === 'date' && tatStatus === 'completed') {
+                            const selectedDate = document.getElementById('tatDateSelect').value;
+                            if (selectedDate && relDate && relDate.toISOString().split('T')[0] === selectedDate) {
+                                filteredData.push({ ...row, _sourceSheet: sheetName });
+                            }
+                        } else if (viewType === 'month') {
+                            const month = parseInt(document.getElementById('tatMonthSelect').value);
+                            const year = parseInt(document.getElementById('tatMonthYearSelect').value);
+                            if (activeDate && activeDate.getMonth() + 1 === month && activeDate.getFullYear() === year) {
+                                filteredData.push({ ...row, _sourceSheet: sheetName });
+                            }
+                        } else if (viewType === 'year') {
+                            const year = parseInt(document.getElementById('tatYearSelect').value);
+                            if (activeDate && activeDate.getFullYear() === year) {
+                                filteredData.push({ ...row, _sourceSheet: sheetName });
                             }
                         }
                     }
                 });
             });
             
-            if (tatStatus === 'not_crossed') {
-                title = '⏳ Ongoing Reports';
-            } else if (tatStatus === 'crossed') {
-                title = '🚨 Overdue Reports';
-            } else {
-                title = '✅ Released Reports';
-            }
+            let title = (tatStatus === 'not_crossed') ? '⏳ Ongoing reports' : 
+                        (tatStatus === 'crossed') ? '🚨 Overdue reports' : '✅ Released reports';
             
+            if (viewType === 'date' && tatStatus === 'completed') title += ` on ${document.getElementById('tatDateSelect').value}`;
+            else if (viewType === 'month') title += ` - ${document.getElementById('tatMonthSelect').options[document.getElementById('tatMonthSelect').selectedIndex].text} ${document.getElementById('tatMonthYearSelect').value}`;
+            else if (viewType === 'year') title += ` - Year ${document.getElementById('tatYearSelect').value}`;
+
             if (filteredData.length === 0) {
-                alert('No samples found for the selected TAT status');
+                alert('No data found for this selection');
                 return;
             }
             
