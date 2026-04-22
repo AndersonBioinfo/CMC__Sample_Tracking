@@ -1385,7 +1385,7 @@
                 { title: 'Sample Name', getValue: (r) => keyMap.sampleName ? r[keyMap.sampleName] : '' },
                 { title: 'Gender', getValue: (r) => { 
                     const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
-                    let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|]\s*([MF])\s*(?:[\/\-\s,\|]|$)/i);
+                    let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|\(]\s*([MF])\s*(?:[\/\-\s,\|\)]|$)/i);
                     if (m) {
                         let g = (m[1] || m[2]).toUpperCase();
                         return (g === 'M' || g === 'MALE') ? 'Male' : 'Female';
