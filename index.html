@@ -382,7 +382,7 @@
         }
 
         tr:hover td {
-            background: #f8f9fa;
+            background: #fff9e6;
         }
 
         .error {
@@ -1359,9 +1359,10 @@
             const usedKeys = new Set();
             
             // Ignore specific columns like S.NO and internal tracking links
+            const hiddenCols = ['sno', 'slno', 'serialno', 'serialnumber', 'reportsentlink', 'rawdatasentto', 'rawdatasentlink', 'clientdoctorname'];
             allKeys.forEach(k => {
                 const norm = normalize(k);
-                if (['sno', 'slno', 'serialno', 'serialnumber', 'reportsentlink', 'rawdatasentto', 'rawdatasentlink'].includes(norm)) {
+                if (hiddenCols.includes(norm)) {
                     usedKeys.add(k);
                 }
             });
@@ -1376,7 +1377,6 @@
                     matched = allKeys.find(k => {
                         if (usedKeys.has(k)) return false;
                         const norm = normalize(k);
-                        // Make sure the pattern is long enough to avoid false positives like "tat" matching "tatRawData"
                         return patterns.some(p => p.length >= 6 && (norm.includes(p) || p.includes(norm)));
                     });
                 }
@@ -1423,7 +1423,14 @@
                 { title: 'Anderson ID', getValue: (r) => keyMap.andId ? r[keyMap.andId] : '' },
                 { title: 'Sample Number', getValue: (r) => keyMap.sampleNumber ? r[keyMap.sampleNumber] : '' },
                 { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
-                { title: 'Client Department', getValue: (r) => keyMap.clientDept ? r[keyMap.clientDept] : '' },
+                { title: 'Client Department', getValue: (r) => {
+                    let parts = [];
+                    if (keyMap.clientDept && r[keyMap.clientDept]) parts.push(r[keyMap.clientDept]);
+                    let dNameKey = allKeys.find(k => normalize(k) === 'clientdoctorname');
+                    if (dNameKey && r[dNameKey]) parts.push(r[dNameKey]);
+                    let finalStr = parts.join(' - ');
+                    return finalStr ? finalStr : '';
+                }},
                 { title: 'Remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
                 { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
                 { title: 'Raw Data Date', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
@@ -1432,7 +1439,24 @@
             ];
 
             otherKeys.forEach(ok => cols.push({ title: ok, getValue: (r) => r[ok] }));
-            cols.push({ title: 'Status', getValue: (r) => keyMap.status ? r[keyMap.status] : '' });
+            cols.push({ title: 'Status', getValue: (r) => {
+                if (keyMap.status && r[keyMap.status]) return r[keyMap.status];
+                
+                const relDate = keyMap.reportReleasedDate ? String(r[keyMap.reportReleasedDate] || '').trim() : '';
+                if (relDate) return 'Completed';
+                
+                const tatText = keyMap.tatReportDate ? r[keyMap.tatReportDate] : null;
+                if (!tatText) return 'Ongoing';
+                
+                if (typeof parseDate === 'function') {
+                    const tatDate = parseDate(tatText);
+                    if (!tatDate) return 'Ongoing';
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    return tatDate < today ? 'Overdue' : 'Ongoing';
+                }
+                return 'Ongoing';
+            }});
 
             currentTableCols = cols;
 
