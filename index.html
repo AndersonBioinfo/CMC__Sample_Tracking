@@ -1320,21 +1320,99 @@
             renderTable(rowsWithSource, `${sheetName} - All Samples`, sheetData.headers);
         }
 
+        let currentTableCols = []; // Track column definitions for current table to enable correct sorting.
+
         function renderTable(rows, title = '', headers = null) {
             if (rows.length === 0) {
                 document.getElementById('contentArea').innerHTML = '<div class="no-data">No samples match your criteria</div>';
                 return;
             }
             
-            // Use first sheet's headers if not provided
-            if (!headers) {
-                headers = allData[Object.keys(allData)[0]].headers;
-            }
+            const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
+            const allKeys = Object.keys(rows[0]).filter(key => key !== '_sourceSheet');
             
-            // Get row keys excluding _sourceSheet
-            const allKeys = Object.keys(rows[0]);
-            const rowKeys = allKeys.filter(key => key !== '_sourceSheet');
+            const definitions = {
+                sampleName: { title: 'Sample name', keys: ['sample name', 'patient name', 'name', 'patient'] },
+                andId: { title: 'AND id', keys: ['and id', 'andid', 'and_id', 'and-id'] },
+                sampleNumber: { title: 'Sample number', keys: ['sample number', 'sample no', 'sample id', 'lab number', 'lab id', 'lab no', 'barcode', 'uhid', 'sample no.'] },
+                test: { title: 'Test', keys: ['test', 'test name', 'test format', 'test type', 'assay', 'analysis'] },
+                clientDept: { title: 'Client department', keys: ['client department', 'client name', 'client', 'department', 'referral', 'ref by', 'hospital', 'source'] },
+                remarks: { title: 'remarks', keys: ['remarks', 'remark', 'comments', 'comment', 'notes'] },
+                receivedDate: { title: 'received date', keys: ['received date', 'date received', 'receipt date', 'registration date', 'inward date', 'booking date', 'received'] },
+                rawDataDate: { title: 'raw data date', keys: ['raw data date', 'raw data', 'run date', 'sequencing date'] },
+                tatReportDate: { title: 'TAT report date', keys: ['tat report date', 'tat report', 'tat date', 'due date', 'tat'] },
+                reportReleasedDate: { title: 'Report released date', keys: ['report released date', 'report released', 'released date', 'release date', 'dispatch date', 'completion date', 'final report', 'issued date'] },
+                status: { title: 'status', keys: ['status', 'sample status', 'report status', 'process status'] }
+            };
+
+            const keyMap = {};
+            const usedKeys = new Set();
             
+            // Ignore SNO
+            allKeys.forEach(k => {
+                const norm = normalize(k);
+                if (['sno', 's.no', 'sl no', 'sl.no', 's.no.', 's. no', 'serial no', 'serial number', 's no'].includes(norm)) {
+                    usedKeys.add(k);
+                }
+            });
+
+            // Map target columns
+            Object.keys(definitions).forEach(defKey => {
+                const patterns = definitions[defKey].keys;
+                // Exact match first
+                let matched = allKeys.find(k => !usedKeys.has(k) && patterns.includes(normalize(k)));
+                // Contains match second
+                if (!matched) {
+                    matched = allKeys.find(k => {
+                        if (usedKeys.has(k)) return false;
+                        const norm = normalize(k);
+                        return patterns.some(p => p.length > 3 && (norm.includes(p) || p.includes(norm)));
+                    });
+                }
+                if (matched) {
+                    keyMap[defKey] = matched;
+                    usedKeys.add(matched);
+                }
+            });
+
+            const otherKeys = allKeys.filter(k => !usedKeys.has(k));
+
+            // Generate Columns config
+            const cols = [
+                { title: 'Sample name', getValue: (r) => keyMap.sampleName ? r[keyMap.sampleName] : '' },
+                { title: 'gender', getValue: (r) => { 
+                    const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
+                    let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|]\s*(M|F)\s*(?:[\/\-\s,\|]|$)/i);
+                    if (m) {
+                        let g = (m[1] || m[2]).toUpperCase();
+                        return g === 'M' ? 'MALE' : (g === 'F' ? 'FEMALE' : g);
+                    }
+                    return ''; 
+                }},
+                { title: 'age', getValue: (r) => {
+                    const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
+                    let m = s.match(/\b(\d{1,3})\s*(YRS?|Y|MONTHS?|M|DAYS?|D)\b/i);
+                    if (m) return m[1] + m[2].toUpperCase().charAt(0);
+                    let m2 = s.match(/[\/\-\s,\|]\s*(\d{1,3})\s*[\/\-\s,\|]/);
+                    if (m2) return m2[1] + 'Y';
+                    return '';
+                }},
+                { title: 'AND id', getValue: (r) => keyMap.andId ? r[keyMap.andId] : '' },
+                { title: 'Sample number', getValue: (r) => keyMap.sampleNumber ? r[keyMap.sampleNumber] : '' },
+                { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
+                { title: 'Client department', getValue: (r) => keyMap.clientDept ? r[keyMap.clientDept] : '' },
+                { title: 'remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
+                { title: 'received date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
+                { title: 'raw data date', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
+                { title: 'TAT report date', getValue: (r) => keyMap.tatReportDate ? r[keyMap.tatReportDate] : '' },
+                { title: 'Report released date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' }
+            ];
+
+            otherKeys.forEach(ok => cols.push({ title: ok, getValue: (r) => r[ok] }));
+            cols.push({ title: 'status', getValue: (r) => keyMap.status ? r[keyMap.status] : '' });
+
+            currentTableCols = cols;
+
             let html = `
                 <div class="result-header">
                     <h3>${title}</h3>
@@ -1350,8 +1428,8 @@
             
             html += '<div class="table-container"><table><thead><tr>';
             
-            headers.forEach((header, index) => {
-                html += `<th class="sortable" onclick="sortTable(${index})">${header}</th>`;
+            cols.forEach((col, index) => {
+                html += `<th class="sortable" onclick="sortTable(${index})">${col.title}</th>`;
             });
             
             html += '</tr></thead><tbody id="tableBody">';
@@ -1360,8 +1438,8 @@
                 const rowClass = getTATClass(row);
                 html += `<tr class="${rowClass}">`;
                 
-                rowKeys.forEach(key => {
-                    const value = row[key];
+                cols.forEach(col => {
+                    const value = col.getValue(row);
                     html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
                 });
                 
@@ -1371,11 +1449,10 @@
             html += '</tbody></table></div>';
             
             // Add scroll hint if table is wide
-            const scrollHintHtml = headers.length > 8 ? '<div class="scroll-hint show">Scroll horizontally to see more columns</div>' : '';
+            const scrollHintHtml = cols.length > 8 ? '<div class="scroll-hint show">Scroll horizontally to see more columns</div>' : '';
             
             document.getElementById('contentArea').innerHTML = html;
             
-            // Check if table actually needs scrolling
             setTimeout(() => {
                 const container = document.querySelector('.table-container');
                 if (container) {
@@ -1531,11 +1608,9 @@
         }
 
         function sortTable(columnIndex) {
-            const headers = allData[Object.keys(allData)[0]].headers;
-            const columnName = headers[columnIndex];
-            const allKeys = Object.keys(currentView[0]);
-            const rowKeys = allKeys.filter(key => key !== '_sourceSheet');
-            const sortKey = rowKeys[columnIndex];
+            if (!currentTableCols || !currentTableCols[columnIndex]) return;
+            
+            const colDef = currentTableCols[columnIndex];
             
             if (sortColumn === columnIndex) {
                 sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
@@ -1545,28 +1620,26 @@
             }
             
             currentView.sort((a, b) => {
-                let valA = a[sortKey];
-                let valB = b[sortKey];
+                let valA = colDef.getValue(a);
+                let valB = colDef.getValue(b);
                 
-                // Handle null/undefined
-                if (valA === null || valA === undefined) return 1;
-                if (valB === null || valB === undefined) return -1;
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
                 
-                // Try to parse as dates
                 const dateA = parseDate(valA);
                 const dateB = parseDate(valB);
                 if (dateA && dateB) {
                     return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
                 }
                 
-                // Try to parse as numbers
-                const numA = parseFloat(valA);
-                const numB = parseFloat(valB);
-                if (!isNaN(numA) && !isNaN(numB)) {
-                    return sortDirection === 'asc' ? numA - numB : numB - numA;
+                if (valA !== '' && valB !== '') {
+                    const numA = parseFloat(valA);
+                    const numB = parseFloat(valB);
+                    if (!isNaN(numA) && !isNaN(numB) && String(numA) === String(valA).trim() && String(numB) === String(valB).trim()) {
+                        return sortDirection === 'asc' ? numA - numB : numB - numA;
+                    }
                 }
                 
-                // Handle as strings
                 valA = String(valA).toLowerCase();
                 valB = String(valB).toLowerCase();
                 
@@ -1577,9 +1650,10 @@
                 }
             });
             
-            renderTable(currentView, document.querySelector('.result-header h3').textContent, headers);
+            const titleElement = document.querySelector('.result-header h3');
+            const title = titleElement ? titleElement.textContent : '';
+            renderTable(currentView, title);
             
-            // Update sort indicators
             document.querySelectorAll('th').forEach((th, idx) => {
                 th.classList.remove('sorted-asc', 'sorted-desc');
                 if (idx === columnIndex) {
