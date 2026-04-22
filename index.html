@@ -774,9 +774,10 @@
 
         async function loadAllData() {
             try {
-                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data from Google Sheets</div>';
+                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data from Google Sheets...</div>';
                 
-                const url = `${APPS_SCRIPT_URL}?action=getAllData`;
+                // Add timestamp to prevent browser from aggressively caching the JSON response
+                const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${new Date().getTime()}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 
@@ -1515,10 +1516,18 @@
 
             otherKeys.forEach(ok => cols.push({ title: formatHeader(ok), getValue: (r) => r[ok] }));
             cols.push({ title: 'Status', getValue: (r) => {
-                if (keyMap.status && r[keyMap.status]) return r[keyMap.status];
+                if (keyMap.status && r[keyMap.status]) {
+                    let sVal = String(r[keyMap.status]).trim();
+                    if (sVal) {
+                        // Normalize capitalization (e.g., 'released' -> 'Released')
+                        if (sVal.toLowerCase() === 'released') return 'Released';
+                        if (sVal.toLowerCase() === 'completed') return 'Completed';
+                        return sVal;
+                    }
+                }
                 
                 const relDate = keyMap.reportReleasedDate ? String(r[keyMap.reportReleasedDate] || '').trim() : '';
-                if (relDate) return 'Completed';
+                if (relDate && relDate !== '-') return 'Completed';
                 
                 const tatText = keyMap.tatReportDate ? r[keyMap.tatReportDate] : null;
                 if (!tatText) return 'Ongoing';
