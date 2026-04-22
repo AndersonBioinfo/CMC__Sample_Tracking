@@ -883,7 +883,7 @@
 
         function findMatchingHeader(headers, patterns) {
             if (!headers || !headers.length) return null;
-            const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
+            const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
             const normalizedPatterns = patterns.map(p => normalize(p));
 
             // 1. Exact Match
@@ -896,7 +896,7 @@
                 const hn = normalize(h);
                 if (hn.length < 3) continue;
                 for (const p of normalizedPatterns) {
-                    if (p.length > 3 && (hn.includes(p) || p.includes(hn))) return h;
+                    if (p.length >= 6 && (hn.includes(p) || p.includes(hn))) return h;
                 }
             }
 
@@ -979,7 +979,7 @@
             const colIndex = mapping._indices[field];
             
             // Normalize for comparison
-            const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
+            const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
             
             // 1. Try by Numerical Index if available (MOST RELIABLE)
             if (colIndex !== undefined) {
