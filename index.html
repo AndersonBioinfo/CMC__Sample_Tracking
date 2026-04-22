@@ -1409,13 +1409,24 @@
                 { title: 'Age', getValue: (r) => {
                     const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
                     let m = s.match(/\b(\d{1,3})\s*(YRS?|Y|MONTHS?|M|DAYS?|D)\b/i);
-                    if (m) return m[1] + m[2].toUpperCase().charAt(0);
-                    let m2 = s.match(/[\/\-\s,\|]\s*(\d{1,3})\s*[\/\-\s,\|]/);
-                    if (m2) return m2[1] + 'Y';
+                    if (m) {
+                        let num = parseInt(m[1], 10);
+                        let unit = m[2].toUpperCase().charAt(0);
+                        let label = unit === 'M' ? 'Month' : (unit === 'D' ? 'Day' : 'Year');
+                        return num + ' ' + label + (num === 1 ? '' : 's');
+                    }
+                    let m2 = s.match(/[\/\-\s,\|\(]\s*(\d{1,3})\s*[\/\-\s,\|\)]/);
+                    if (m2) {
+                        let num = parseInt(m2[1], 10);
+                        return num + ' Year' + (num === 1 ? '' : 's');
+                    }
                     
                     if (keyMap.age) {
-                        let a = String(r[keyMap.age] || '').trim().toUpperCase();
-                        if (a && !isNaN(a)) return a + 'Y';
+                        let a = String(r[keyMap.age] || '').trim();
+                        if (a && !isNaN(a)) {
+                            let num = parseInt(a, 10);
+                            return num + ' Year' + (num === 1 ? '' : 's');
+                        }
                         return a;
                     }
                     return '';
