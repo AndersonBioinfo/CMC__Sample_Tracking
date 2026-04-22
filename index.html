@@ -288,7 +288,7 @@
 
         table {
             width: 100%;
-            min-width: 800px;
+            min-width: 1200px;
             border-collapse: collapse;
         }
         
@@ -346,6 +346,8 @@
             cursor: pointer;
             user-select: none;
             transition: background 0.3s;
+            min-width: 150px;
+            white-space: nowrap;
         }
 
         th:hover {
@@ -368,12 +370,18 @@
         }
 
         td {
-            padding: 12px;
+            padding: 15px 12px;
             border-bottom: 1px solid #ecf0f1;
             font-size: 14px;
+            min-width: 150px;
+            max-width: 350px;
+            white-space: normal;
+            word-wrap: break-word;
+            vertical-align: top;
+            line-height: 1.4;
         }
 
-        tr:hover {
+        tr:hover td {
             background: #f8f9fa;
         }
 
