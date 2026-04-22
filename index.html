@@ -422,6 +422,15 @@
             display: block;
         }
 
+        .date-picker-group {
+            display: none;
+        }
+
+        .date-picker-group.active {
+            display: block;
+            margin-top: 10px;
+        }
+
         .available-data-info {
             background: #34495e;
             padding: 10px;
@@ -1436,26 +1445,55 @@
                 { title: 'Sample Number', getValue: (r) => keyMap.sampleNumber ? r[keyMap.sampleNumber] : '' },
                 { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
                 { title: 'Client Department', getValue: (r) => {
-                    let parts = [];
-                    let clientNameFound = false;
-                    Object.keys(r).forEach(k => {
-                        if (k === '_sourceSheet') return;
-                        const norm = normalize(k);
-                        if ((norm === 'clientname' || norm === 'clientdepartment' || norm === 'client') && r[k] && String(r[k]).trim() !== '') {
-                            parts.unshift(String(r[k]).trim()); // Hospital name first
-                            clientNameFound = true;
+                    let rawClient = '';
+                    if (keyMap.clientDept && r[keyMap.clientDept]) {
+                        rawClient = String(r[keyMap.clientDept]).trim();
+                    } else {
+                        // Standard fallback check
+                        Object.keys(r).forEach(k => {
+                            if (k === '_sourceSheet') return;
+                            const norm = normalize(k);
+                            if ((norm === 'clientname' || norm === 'clientdepartment' || norm === 'client') && r[k]) {
+                                rawClient = String(r[k]).trim();
+                            }
+                        });
+                    }
+                    if (rawClient) {
+                        let drMatch = rawClient.match(/\s+(Dr\..*|Dr\s+.*)/i);
+                        if (drMatch) {
+                            return rawClient.replace(drMatch[0], '').trim();
                         }
+                    }
+                    return rawClient;
+                }},
+                { title: 'Client Doctor Name', getValue: (r) => {
+                    let docName = '';
+                    let rawClient = '';
+                    if (keyMap.clientDept && r[keyMap.clientDept]) {
+                        rawClient = String(r[keyMap.clientDept]).trim();
+                    } else {
+                        Object.keys(r).forEach(k => {
+                            if (k === '_sourceSheet') return;
+                            const norm = normalize(k);
+                            if ((norm === 'clientname' || norm === 'clientdepartment' || norm === 'client') && r[k]) {
+                                rawClient = String(r[k]).trim();
+                            }
+                        });
+                    }
+                    if (rawClient) {
+                        let drMatch = rawClient.match(/\s+(Dr\..*|Dr\s+.*)/i);
+                        if (drMatch) {
+                            return drMatch[1].trim();
+                        }
+                    }
+                    // Standalone backup
+                    Object.keys(r).forEach(k => {
+                        const norm = normalize(k);
                         if (norm === 'clientdoctorname' && r[k] && String(r[k]).trim() !== '') {
-                            parts.push(String(r[k]).trim()); // Doctor name second
+                            docName = String(r[k]).trim();
                         }
                     });
-                    
-                    // Standard fallback
-                    if (!clientNameFound && keyMap.clientDept && r[keyMap.clientDept]) {
-                        parts.unshift(String(r[keyMap.clientDept]).trim());
-                    }
-                    
-                    return parts.length > 0 ? parts.join(' - ') : '';
+                    return docName;
                 }},
                 { title: 'Remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
                 { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
@@ -1776,6 +1814,12 @@
             
             document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
             document.getElementById(type + 'Filter').classList.add('active');
+        }
+
+        function toggleDatePickers() {
+            const viewType = document.getElementById('clientViewType').value;
+            document.getElementById('monthPicker').classList.toggle('active', viewType === 'month');
+            document.getElementById('yearPicker').classList.toggle('active', viewType === 'year');
         }
 
         function toggleTATDatePickers() {
