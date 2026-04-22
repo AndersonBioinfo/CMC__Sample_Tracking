@@ -1332,17 +1332,19 @@
             const allKeys = Object.keys(rows[0]).filter(key => key !== '_sourceSheet');
             
             const definitions = {
-                sampleName: { title: 'Sample name', keys: ['sample name', 'patient name', 'name', 'patient'] },
-                andId: { title: 'AND id', keys: ['and id', 'andid', 'and_id', 'and-id'] },
-                sampleNumber: { title: 'Sample number', keys: ['sample number', 'sample no', 'sample id', 'lab number', 'lab id', 'lab no', 'barcode', 'uhid', 'sample no.'] },
+                sampleName: { title: 'Sample Name', keys: ['sample name', 'patient name', 'name', 'patient'] },
+                gender: { title: 'Gender', keys: ['gender', 'sex', 'm/f'] },
+                age: { title: 'Age', keys: ['age', 'patient age'] },
+                andId: { title: 'Anderson ID', keys: ['and id', 'andid', 'and_id', 'and-id', 'anderson id'] },
+                sampleNumber: { title: 'Sample Number', keys: ['sample number', 'sample no', 'sample id', 'lab number', 'lab id', 'lab no', 'barcode', 'uhid', 'sample no.'] },
                 test: { title: 'Test', keys: ['test', 'test name', 'test format', 'test type', 'assay', 'analysis'] },
-                clientDept: { title: 'Client department', keys: ['client department', 'client name', 'client', 'department', 'referral', 'ref by', 'hospital', 'source'] },
-                remarks: { title: 'remarks', keys: ['remarks', 'remark', 'comments', 'comment', 'notes'] },
-                receivedDate: { title: 'received date', keys: ['received date', 'date received', 'receipt date', 'registration date', 'inward date', 'booking date', 'received'] },
-                rawDataDate: { title: 'raw data date', keys: ['raw data date', 'raw data', 'run date', 'sequencing date'] },
-                tatReportDate: { title: 'TAT report date', keys: ['tat report date', 'tat report', 'tat date', 'due date', 'tat'] },
-                reportReleasedDate: { title: 'Report released date', keys: ['report released date', 'report released', 'released date', 'release date', 'dispatch date', 'completion date', 'final report', 'issued date'] },
-                status: { title: 'status', keys: ['status', 'sample status', 'report status', 'process status'] }
+                clientDept: { title: 'Client Department', keys: ['client department', 'client name', 'client', 'department', 'referral', 'ref by', 'hospital', 'source'] },
+                remarks: { title: 'Remarks', keys: ['remarks', 'remark', 'comments', 'comment', 'notes'] },
+                receivedDate: { title: 'Received Date', keys: ['received date', 'date received', 'receipt date', 'registration date', 'inward date', 'booking date', 'received'] },
+                rawDataDate: { title: 'Raw Data Date', keys: ['raw data date', 'raw data', 'run date', 'sequencing date'] },
+                tatReportDate: { title: 'TAT Report Date', keys: ['tat report date', 'tat report', 'tat date', 'due date', 'tat'] },
+                reportReleasedDate: { title: 'Report Released Date', keys: ['report released date', 'report released', 'released date', 'release date', 'dispatch date', 'completion date', 'final report', 'issued date'] },
+                status: { title: 'Status', keys: ['status', 'sample status', 'report status', 'process status'] }
             };
 
             const keyMap = {};
@@ -1379,37 +1381,49 @@
 
             // Generate Columns config
             const cols = [
-                { title: 'Sample name', getValue: (r) => keyMap.sampleName ? r[keyMap.sampleName] : '' },
-                { title: 'gender', getValue: (r) => { 
+                { title: 'Sample Name', getValue: (r) => keyMap.sampleName ? r[keyMap.sampleName] : '' },
+                { title: 'Gender', getValue: (r) => { 
                     const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
-                    let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|]\s*(M|F)\s*(?:[\/\-\s,\|]|$)/i);
+                    let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|]\s*([MF])\s*(?:[\/\-\s,\|]|$)/i);
                     if (m) {
                         let g = (m[1] || m[2]).toUpperCase();
-                        return g === 'M' ? 'MALE' : (g === 'F' ? 'FEMALE' : g);
+                        return (g === 'M' || g === 'MALE') ? 'Male' : 'Female';
+                    }
+                    if (keyMap.gender) {
+                        let g = String(r[keyMap.gender] || '').trim().toUpperCase();
+                        if (g === 'M' || g === 'MALE') return 'Male';
+                        if (g === 'F' || g === 'FEMALE') return 'Female';
+                        return r[keyMap.gender];
                     }
                     return ''; 
                 }},
-                { title: 'age', getValue: (r) => {
+                { title: 'Age', getValue: (r) => {
                     const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
                     let m = s.match(/\b(\d{1,3})\s*(YRS?|Y|MONTHS?|M|DAYS?|D)\b/i);
                     if (m) return m[1] + m[2].toUpperCase().charAt(0);
                     let m2 = s.match(/[\/\-\s,\|]\s*(\d{1,3})\s*[\/\-\s,\|]/);
                     if (m2) return m2[1] + 'Y';
+                    
+                    if (keyMap.age) {
+                        let a = String(r[keyMap.age] || '').trim().toUpperCase();
+                        if (a && !isNaN(a)) return a + 'Y';
+                        return a;
+                    }
                     return '';
                 }},
-                { title: 'AND id', getValue: (r) => keyMap.andId ? r[keyMap.andId] : '' },
-                { title: 'Sample number', getValue: (r) => keyMap.sampleNumber ? r[keyMap.sampleNumber] : '' },
+                { title: 'Anderson ID', getValue: (r) => keyMap.andId ? r[keyMap.andId] : '' },
+                { title: 'Sample Number', getValue: (r) => keyMap.sampleNumber ? r[keyMap.sampleNumber] : '' },
                 { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
-                { title: 'Client department', getValue: (r) => keyMap.clientDept ? r[keyMap.clientDept] : '' },
-                { title: 'remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
-                { title: 'received date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
-                { title: 'raw data date', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
-                { title: 'TAT report date', getValue: (r) => keyMap.tatReportDate ? r[keyMap.tatReportDate] : '' },
-                { title: 'Report released date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' }
+                { title: 'Client Department', getValue: (r) => keyMap.clientDept ? r[keyMap.clientDept] : '' },
+                { title: 'Remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
+                { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
+                { title: 'Raw Data Date', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
+                { title: 'TAT Report Date', getValue: (r) => keyMap.tatReportDate ? r[keyMap.tatReportDate] : '' },
+                { title: 'Report Released Date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' }
             ];
 
             otherKeys.forEach(ok => cols.push({ title: ok, getValue: (r) => r[ok] }));
-            cols.push({ title: 'status', getValue: (r) => keyMap.status ? r[keyMap.status] : '' });
+            cols.push({ title: 'Status', getValue: (r) => keyMap.status ? r[keyMap.status] : '' });
 
             currentTableCols = cols;
 
