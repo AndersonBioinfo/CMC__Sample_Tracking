@@ -1037,8 +1037,30 @@
             const relDate = String(getFieldValue(row, 'reportReleasedDate', targetSheet) || '').trim();
             const rawDataSent = String(getFieldValue(row, 'rawDataSent', targetSheet) || '').trim();
             
-            const isReleasedDateFilled = relDate && relDate !== '-' && relDate.toLowerCase() !== 'n/a';
-            const isRawDataSentFilled = rawDataSent && rawDataSent !== '-' && rawDataSent.toLowerCase() !== 'n/a';
+            let isReleasedDateFilled = relDate && relDate !== '-' && relDate.toLowerCase() !== 'n/a';
+            let isRawDataSentFilled = rawDataSent && rawDataSent !== '-' && rawDataSent.toLowerCase() !== 'n/a';
+            
+            // Fallback: raw key scan in case column wasn't mapped by COLUMN_PATTERNS
+            if (!isReleasedDateFilled || !isRawDataSentFilled) {
+                for (const key of Object.keys(row)) {
+                    if (key === '_sourceSheet') continue;
+                    const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const val = String(row[key] || '').trim();
+                    if (!val || val === '-' || val.toLowerCase() === 'n/a') continue;
+                    
+                    if (!isReleasedDateFilled && (
+                        norm.includes('releaseddate') || norm.includes('releasedate') ||
+                        norm === 'reportreleased' || norm === 'dispatchdate' || norm === 'issueddate'
+                    )) {
+                        isReleasedDateFilled = true;
+                    }
+                    if (!isRawDataSentFilled &&
+                        norm.includes('rawdatasent') && !norm.includes('link') && norm !== 'rawdatasentto'
+                    ) {
+                        isRawDataSentFilled = true;
+                    }
+                }
+            }
             
             if (isReleasedDateFilled || isRawDataSentFilled) {
                 return 'Released';
@@ -1840,24 +1862,20 @@
             const client = document.getElementById('clientSelect').value;
             const viewType = document.getElementById('clientViewType').value;
             
-            if (!client) {
-                alert('Please select a client');
-                return;
-            }
-            
             let filteredData = [];
-            let title = `Client: ${client}`;
+            let title = client ? `Client: ${client}` : 'All Clients';
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
+                    // If a client is selected, filter by client; otherwise include all rows
                     const rowClient = getNormalizedClientName(getFieldValue(row, 'clientName', sheetName));
+                    const clientMatch = !client || rowClient === client;
                     
-                    if (rowClient === client) {
-                        // User Request: Use TAT Report column for client month/year segregation
-                        // Fallback: If TAT Report is missing, use Received Date
-                        let activeDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-                        if (!activeDate) activeDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
+                    if (clientMatch) {
+                        // Use received date for month/year segregation; fallback to TAT report date
+                        let activeDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
+                        if (!activeDate) activeDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
                         
                         if (viewType === 'total') {
                             filteredData.push({ ...row, _sourceSheet: sheetName });
