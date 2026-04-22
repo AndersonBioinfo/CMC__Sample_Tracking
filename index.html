@@ -746,16 +746,21 @@
             
             // Priority 2: TAT/Due Dates (Crucial for Overdue calculation)
             tatReport: ['tat report', 'tat date', 'tat', 'due date', 'target date', 'promised date', 'dispatch date'],
+            tatRawData: ['tat raw data', 'tat data raw', 'raw data tat', 'tat raw', 'tat data', 'tattodataraw'],
             
             // Priority 3: Completion/Release Dates
             reportReleasedDate: ['released date', 'release date', 'report released', 'dispatched date', 'completion date', 'final report', 'issued date'],
+            rawDataSent: ['raw data sent', 'raw data date', 'data sent date', 'raw data sent date', 'raw data sent to'],
             
             // Priority 4: Inward/Received Dates (Used for Month/Year filtering)
             receivedDate: ['received date', 'received', 'reg date', 'registration date', 'entry date', 'inward date', 'date of receipt', 'booking date'],
             
             // Others
             sampleId: ['sample id', 'sample number', 'sample no', 'lab id', 'id', 'barcode', 'uhid'],
+            sampleName: ['sample name', 'patient name', 'name', 'patient', 'patient/sample name'],
             testType: ['test name', 'test type', 'test', 'analysis', 'assay', 'procedure'],
+            sampleType: ['sample type', 'specimen type', 'type of sample', 'sample', 'specimen'],
+            remarks: ['remarks', 'remark', 'comments', 'comment', 'notes', 'history'],
             status: ['status', 'report status', 'sample status', 'process status']
         };
 
@@ -1025,31 +1030,72 @@
             return null;
         }
 
-        function isReportReleased(row, sheetName = null) {
+        function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
-            const releasedDate = getFieldValue(row, 'reportReleasedDate', targetSheet);
-            const status = getFieldValue(row, 'status', targetSheet);
             
-            const releasedDateStr = releasedDate ? String(releasedDate).trim().toLowerCase() : '';
-            const statusStr = status ? String(status).trim().toLowerCase() : '';
+            // 1. Check for Released Status First
+            const relDate = String(getFieldValue(row, 'reportReleasedDate', targetSheet) || '').trim();
+            const rawDataSent = String(getFieldValue(row, 'rawDataSent', targetSheet) || '').trim();
             
-            // Keywords that signify a report is definitely NOT finished
-            const negativeKeywords = ['pending', 'in progress', 'ip', 'n/a', 'na', '-', '0', 'not released', 'awaiting', 'processing'];
+            const isReleasedDateFilled = relDate && relDate !== '-' && relDate.toLowerCase() !== 'n/a';
+            const isRawDataSentFilled = rawDataSent && rawDataSent !== '-' && rawDataSent.toLowerCase() !== 'n/a';
             
-            // Positive indicators
-            const positiveKeywords = ['released', 'completed', 'dispatched', 'done', 'finalized', 'issued', 'sent'];
-            
-            // Check 1: Non-empty release date column that doesn't contain a negative keyword
-            if (releasedDateStr && !negativeKeywords.includes(releasedDateStr)) {
-                return true;
+            if (isReleasedDateFilled || isRawDataSentFilled) {
+                return 'Released';
             }
             
-            // Check 2: Status column explicitly says it's finished
-            if (positiveKeywords.some(pos => statusStr.includes(pos))) {
-                return true;
+            // 2. Identify if it's a Fetus Sample
+            let isFetus = false;
+            const fetusKeywords = ['FETUS', 'FETAL'];
+            const mappedFieldsToCheck = ['testType', 'sampleType', 'sampleName', 'remarks'];
+            
+            // Check mapped fields first
+            for (const field of mappedFieldsToCheck) {
+                const val = String(getFieldValue(row, field, targetSheet) || '').toUpperCase();
+                if (fetusKeywords.some(kw => val.includes(kw))) {
+                    isFetus = true;
+                    break;
+                }
             }
             
-            return false;
+            // Fallback: scan ALL row values for fetus keywords
+            if (!isFetus) {
+                for (const key of Object.keys(row)) {
+                    if (key === '_sourceSheet') continue;
+                    const val = String(row[key] || '').toUpperCase();
+                    if (fetusKeywords.some(kw => val.includes(kw))) {
+                        isFetus = true;
+                        break;
+                    }
+                }
+            }
+            
+            // 3. Check TAT crossing logic
+            const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
+            const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const tatReportDate = parseDate(tatReportText);
+            const tatRawDataDate = parseDate(tatRawDataText);
+            
+            const isTatReportCrossed = tatReportDate && tatReportDate < today;
+            const isTatRawDataCrossed = tatRawDataDate && tatRawDataDate < today;
+            
+            if (isFetus) {
+                // For fetus samples check for only TAT report for the status
+                if (isTatReportCrossed) return 'Overdue';
+                return 'Ongoing';
+            } else {
+                // For all other samples, check both TAT report and TAT Raw data
+                if (isTatReportCrossed || isTatRawDataCrossed) return 'Overdue';
+                return 'Ongoing';
+            }
+        }
+
+        function isReportReleased(row, sheetName = null) {
+            return calculateStatus(row, sheetName) === 'Released';
         }
 
         function showConfigModal() {
@@ -1516,30 +1562,7 @@
 
             otherKeys.forEach(ok => cols.push({ title: formatHeader(ok), getValue: (r) => r[ok] }));
             cols.push({ title: 'Status', getValue: (r) => {
-                if (keyMap.status && r[keyMap.status]) {
-                    let sVal = String(r[keyMap.status]).trim();
-                    if (sVal) {
-                        // Normalize capitalization (e.g., 'released' -> 'Released')
-                        if (sVal.toLowerCase() === 'released') return 'Released';
-                        if (sVal.toLowerCase() === 'completed') return 'Completed';
-                        return sVal;
-                    }
-                }
-                
-                const relDate = keyMap.reportReleasedDate ? String(r[keyMap.reportReleasedDate] || '').trim() : '';
-                if (relDate && relDate !== '-') return 'Completed';
-                
-                const tatText = keyMap.tatReportDate ? r[keyMap.tatReportDate] : null;
-                if (!tatText) return 'Ongoing';
-                
-                if (typeof parseDate === 'function') {
-                    const tatDate = parseDate(tatText);
-                    if (!tatDate) return 'Ongoing';
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-                    return tatDate < today ? 'Overdue' : 'Ongoing';
-                }
-                return 'Ongoing';
+                return calculateStatus(r, r._sourceSheet);
             }});
 
             currentTableCols = cols;
@@ -1599,29 +1622,18 @@
         }
 
         function getTATStats(rows) {
-            let pending = 0, overdue = 0, completed = 0, noData = 0;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            let pending = 0, overdue = 0, completed = 0;
             
             rows.forEach(row => {
-                // Determine which sheet this row came from
                 const sheetName = row._sourceSheet || currentSheet;
+                const status = calculateStatus(row, sheetName);
                 
-                const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-                const released = isReportReleased(row, sheetName);
-                
-                // Check if report is released
-                if (released) {
+                if (status === 'Released') {
                     completed++;
-                } else if (tatDate) {
-                    // Report not released yet
-                    if (tatDate < today) {
-                        overdue++;
-                    } else {
-                        pending++;
-                    }
+                } else if (status === 'Overdue') {
+                    overdue++;
                 } else {
-                    noData++;
+                    pending++;
                 }
             });
             
@@ -1639,40 +1651,17 @@
                     <div class="stat-value">${completed}</div>
                 </div>
             `;
-
-            if (noData > 0) {
-                html += `
-                    <div class="stat-item">
-                        <div class="stat-label">⚠️ No TAT Data</div>
-                        <div class="stat-value">${noData}</div>
-                    </div>
-                `;
-            }
             
             return html;
         }
 
         function getTATClass(row) {
-            // Determine which sheet this row came from
             const sheetName = row._sourceSheet || currentSheet;
+            const status = calculateStatus(row, sheetName);
             
-            const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            // Check if report is released
-            if (isReportReleased(row, sheetName)) {
-                return 'tat-completed';
-            }
-            
-            // Check TAT status for unreleased reports
-            if (tatDate) {
-                if (tatDate < today) {
-                    return 'tat-overdue';
-                } else {
-                    return 'tat-pending';
-                }
-            }
+            if (status === 'Released') return 'tat-completed';
+            if (status === 'Overdue') return 'tat-overdue';
+            if (status === 'Ongoing') return 'tat-pending';
             
             return '';
         }
@@ -1915,46 +1904,44 @@
             const viewType = document.getElementById('tatViewType').value;
             
             let filteredData = [];
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
-                    const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-                    const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
-                    const released = isReportReleased(row, sheetName);
+                    const rowWithSource = { ...row, _sourceSheet: sheetName };
+                    const status = calculateStatus(rowWithSource, sheetName);
                     
                     let statusMatch = false;
-                    if (tatStatus === 'completed' && released) statusMatch = true;
-                    else if (tatStatus === 'not_crossed' && !released && tatDate && tatDate >= today) statusMatch = true;
-                    else if (tatStatus === 'crossed' && !released && tatDate && tatDate < today) statusMatch = true;
+                    if (tatStatus === 'completed' && status === 'Released') statusMatch = true;
+                    else if (tatStatus === 'not_crossed' && status === 'Ongoing') statusMatch = true;
+                    else if (tatStatus === 'crossed' && status === 'Overdue') statusMatch = true;
 
                     if (statusMatch) {
-                        // User Logic: Ongoing/Overdue look at TAT Date. Released look at Release Date.
-                        // Fallback: If TAT is missing for the month/year segregation views, use Received Date
+                        // For date-range filtering use the most relevant date
+                        const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
+                        const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
                         let activeDate = (tatStatus === 'completed') ? relDate : tatDate;
                         if (!activeDate && (viewType === 'month' || viewType === 'year')) {
                             activeDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                         }
                         
                         if (viewType === 'total') {
-                            filteredData.push({ ...row, _sourceSheet: sheetName });
+                            filteredData.push(rowWithSource);
                         } else if (viewType === 'date' && tatStatus === 'completed') {
                             const selectedDate = document.getElementById('tatDateSelect').value;
                             if (selectedDate && relDate && relDate.toISOString().split('T')[0] === selectedDate) {
-                                filteredData.push({ ...row, _sourceSheet: sheetName });
+                                filteredData.push(rowWithSource);
                             }
                         } else if (viewType === 'month') {
                             const month = parseInt(document.getElementById('tatMonthSelect').value);
                             const year = parseInt(document.getElementById('tatMonthYearSelect').value);
                             if (activeDate && activeDate.getMonth() + 1 === month && activeDate.getFullYear() === year) {
-                                filteredData.push({ ...row, _sourceSheet: sheetName });
+                                filteredData.push(rowWithSource);
                             }
                         } else if (viewType === 'year') {
                             const year = parseInt(document.getElementById('tatYearSelect').value);
                             if (activeDate && activeDate.getFullYear() === year) {
-                                filteredData.push({ ...row, _sourceSheet: sheetName });
+                                filteredData.push(rowWithSource);
                             }
                         }
                     }
