@@ -1449,7 +1449,18 @@
                 { title: 'Report Released Date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' }
             ];
 
-            otherKeys.forEach(ok => cols.push({ title: ok, getValue: (r) => r[ok] }));
+            const formatHeader = (key) => {
+                const known = {
+                    'sampleType': 'Sample Type',
+                    'history': 'History',
+                    'tatRawData': 'TAT Raw Data',
+                    'reports': 'Reports'
+                };
+                if (known[key]) return known[key];
+                return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+            };
+
+            otherKeys.forEach(ok => cols.push({ title: formatHeader(ok), getValue: (r) => r[ok] }));
             cols.push({ title: 'Status', getValue: (r) => {
                 if (keyMap.status && r[keyMap.status]) return r[keyMap.status];
                 
