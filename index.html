@@ -1350,10 +1350,10 @@
             const keyMap = {};
             const usedKeys = new Set();
             
-            // Ignore SNO
+            // Ignore specific columns like S.NO and internal tracking links
             allKeys.forEach(k => {
                 const norm = normalize(k);
-                if (['sno', 'slno', 'serialno', 'serialnumber'].includes(norm)) {
+                if (['sno', 'slno', 'serialno', 'serialnumber', 'reportsentlink', 'rawdatasentto', 'rawdatasentlink'].includes(norm)) {
                     usedKeys.add(k);
                 }
             });
