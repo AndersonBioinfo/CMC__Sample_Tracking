@@ -1328,23 +1328,23 @@
                 return;
             }
             
-            const normalize = (str) => String(str).toLowerCase().trim().replace(/[\s\u00a0]+/g, ' ');
+            const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
             const allKeys = Object.keys(rows[0]).filter(key => key !== '_sourceSheet');
             
             const definitions = {
-                sampleName: { title: 'Sample Name', keys: ['sample name', 'patient name', 'name', 'patient'] },
-                gender: { title: 'Gender', keys: ['gender', 'sex', 'm/f'] },
-                age: { title: 'Age', keys: ['age', 'patient age'] },
-                andId: { title: 'Anderson ID', keys: ['and id', 'andid', 'and_id', 'and-id', 'anderson id'] },
-                sampleNumber: { title: 'Sample Number', keys: ['sample number', 'sample no', 'sample id', 'lab number', 'lab id', 'lab no', 'barcode', 'uhid', 'sample no.'] },
-                test: { title: 'Test', keys: ['test', 'test name', 'test format', 'test type', 'assay', 'analysis'] },
-                clientDept: { title: 'Client Department', keys: ['client department', 'client name', 'client', 'department', 'referral', 'ref by', 'hospital', 'source'] },
+                sampleName: { title: 'Sample Name', keys: ['samplename', 'patientname', 'name', 'patient'] },
+                gender: { title: 'Gender', keys: ['gender', 'sex', 'mf'] },
+                age: { title: 'Age', keys: ['age', 'patientage'] },
+                andId: { title: 'Anderson ID', keys: ['andid', 'andersonid'] },
+                sampleNumber: { title: 'Sample Number', keys: ['samplenumber', 'sampleno', 'sampleid', 'labnumber', 'labid', 'labno', 'barcode', 'uhid'] },
+                test: { title: 'Test', keys: ['test', 'testname', 'testformat', 'testtype', 'assay', 'analysis'] },
+                clientDept: { title: 'Client Department', keys: ['clientdepartment', 'clientname', 'client', 'department', 'referral', 'refby', 'hospital', 'source'] },
                 remarks: { title: 'Remarks', keys: ['remarks', 'remark', 'comments', 'comment', 'notes'] },
-                receivedDate: { title: 'Received Date', keys: ['received date', 'date received', 'receipt date', 'registration date', 'inward date', 'booking date', 'received'] },
-                rawDataDate: { title: 'Raw Data Date', keys: ['raw data date', 'raw data', 'run date', 'sequencing date'] },
-                tatReportDate: { title: 'TAT Report Date', keys: ['tat report date', 'tat report', 'tat date', 'due date', 'tat'] },
-                reportReleasedDate: { title: 'Report Released Date', keys: ['report released date', 'report released', 'released date', 'release date', 'dispatch date', 'completion date', 'final report', 'issued date'] },
-                status: { title: 'Status', keys: ['status', 'sample status', 'report status', 'process status'] }
+                receivedDate: { title: 'Received Date', keys: ['receiveddate', 'datereceived', 'receiptdate', 'registrationdate', 'inwarddate', 'bookingdate', 'received'] },
+                rawDataDate: { title: 'Raw Data Date', keys: ['rawdatadate', 'rawdata', 'rundate', 'sequencingdate', 'rawdatareceived'] },
+                tatReportDate: { title: 'TAT Report Date', keys: ['tatreportdate', 'tatreport', 'tatdate', 'duedate'] },
+                reportReleasedDate: { title: 'Report Released Date', keys: ['reportreleaseddate', 'reportreleased', 'releaseddate', 'releasedate', 'dispatchdate', 'completiondate', 'finalreport', 'issueddate'] },
+                status: { title: 'Status', keys: ['status', 'samplestatus', 'reportstatus', 'processstatus'] }
             };
 
             const keyMap = {};
@@ -1353,7 +1353,7 @@
             // Ignore SNO
             allKeys.forEach(k => {
                 const norm = normalize(k);
-                if (['sno', 's.no', 'sl no', 'sl.no', 's.no.', 's. no', 'serial no', 'serial number', 's no'].includes(norm)) {
+                if (['sno', 'slno', 'serialno', 'serialnumber'].includes(norm)) {
                     usedKeys.add(k);
                 }
             });
@@ -1368,7 +1368,8 @@
                     matched = allKeys.find(k => {
                         if (usedKeys.has(k)) return false;
                         const norm = normalize(k);
-                        return patterns.some(p => p.length > 3 && (norm.includes(p) || p.includes(norm)));
+                        // Make sure the pattern is long enough to avoid false positives like "tat" matching "tatRawData"
+                        return patterns.some(p => p.length >= 6 && (norm.includes(p) || p.includes(norm)));
                     });
                 }
                 if (matched) {
