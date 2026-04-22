@@ -1437,11 +1437,25 @@
                 { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
                 { title: 'Client Department', getValue: (r) => {
                     let parts = [];
-                    if (keyMap.clientDept && r[keyMap.clientDept]) parts.push(r[keyMap.clientDept]);
-                    let dNameKey = allKeys.find(k => normalize(k) === 'clientdoctorname');
-                    if (dNameKey && r[dNameKey]) parts.push(r[dNameKey]);
-                    let finalStr = parts.join(' - ');
-                    return finalStr ? finalStr : '';
+                    let clientNameFound = false;
+                    Object.keys(r).forEach(k => {
+                        if (k === '_sourceSheet') return;
+                        const norm = normalize(k);
+                        if ((norm === 'clientname' || norm === 'clientdepartment' || norm === 'client') && r[k] && String(r[k]).trim() !== '') {
+                            parts.unshift(String(r[k]).trim()); // Hospital name first
+                            clientNameFound = true;
+                        }
+                        if (norm === 'clientdoctorname' && r[k] && String(r[k]).trim() !== '') {
+                            parts.push(String(r[k]).trim()); // Doctor name second
+                        }
+                    });
+                    
+                    // Standard fallback
+                    if (!clientNameFound && keyMap.clientDept && r[keyMap.clientDept]) {
+                        parts.unshift(String(r[keyMap.clientDept]).trim());
+                    }
+                    
+                    return parts.length > 0 ? parts.join(' - ') : '';
                 }},
                 { title: 'Remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
                 { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
