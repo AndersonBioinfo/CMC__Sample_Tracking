@@ -926,13 +926,25 @@
             
             // 2. Remove any text in parentheses e.g. "HAEMOTOLOGY(Research)" -> "HAEMOTOLOGY"
             clean = clean.replace(/\s*\(.*?\)\s*/g, ' ').trim();
-            
-            // 3. Map known aliases
+
+            // 3. Normalize "DR." prefix variants: collapse "DR. " / "DR." / "DR " -> "DR "
+            //    so "DR. SHAJI" and "DR.SHAJI" both become "DR SHAJI"
+            clean = clean.replace(/\bDR\.?\s*/g, 'DR ').trim();
+            // Collapse any resulting double spaces
+            clean = clean.replace(/\s{2,}/g, ' ');
+
+            // 4. Map known aliases
             if (clean === 'CMC' || clean === 'CHRISTIAN MEDICAL COLLEGE') {
                 return 'CHRISTIAN MEDICAL COLLEGE';
             }
+
+            // 5. Medical Genetics aliases:
+            //    "CMC MEDICAL GENETICS", "CMC-MEDICAL GENETICS", "MEDICAL GENETICS" -> same canonical
+            if (clean.includes('MEDICAL GENETICS') || clean.includes('MEDICALGENETICS')) {
+                return 'MEDICAL GENETICS';
+            }
             
-            // 4. Handle common variations for Haemotology/Haematology/Heamotology
+            // 6. Handle common variations for Haemotology/Haematology/Heamotology
             if (clean.includes('HAEMOTOL') || clean.includes('HAEMATOL') || clean.includes('HEAMOTOL')) {
                 return 'HAEMOTOLOGY';
             }
@@ -1047,15 +1059,19 @@
                     const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
                     const val = String(row[key] || '').trim();
                     if (!val || val === '-' || val.toLowerCase() === 'n/a') continue;
-                    
+
+                    // Match any released/dispatched/issued date column
                     if (!isReleasedDateFilled && (
                         norm.includes('releaseddate') || norm.includes('releasedate') ||
-                        norm === 'reportreleased' || norm === 'dispatchdate' || norm === 'issueddate'
+                        norm.includes('reportrelease') || norm.includes('released') ||
+                        norm === 'dispatchdate' || norm === 'issueddate' || norm === 'completiondate'
                     )) {
                         isReleasedDateFilled = true;
                     }
+                    // Match any raw data sent column (including "Raw Data Sent To")
+                    // Removed: norm !== 'rawdatasentto' — that column IS valid when filled
                     if (!isRawDataSentFilled &&
-                        norm.includes('rawdatasent') && !norm.includes('link') && norm !== 'rawdatasentto'
+                        norm.includes('rawdatasent') && !norm.includes('link')
                     ) {
                         isRawDataSentFilled = true;
                     }
@@ -1106,12 +1122,12 @@
             const isTatRawDataCrossed = tatRawDataDate && tatRawDataDate < today;
             
             if (isFetus) {
-                // For fetus samples check for only TAT report for the status
+                // For fetus samples: check only TAT report
                 if (isTatReportCrossed) return 'Overdue';
                 return 'Ongoing';
             } else {
-                // For all other samples, check both TAT report and TAT Raw data
-                if (isTatReportCrossed || isTatRawDataCrossed) return 'Overdue';
+                // For all other samples: BOTH TAT report AND TAT Raw data must be crossed
+                if (isTatReportCrossed && isTatRawDataCrossed) return 'Overdue';
                 return 'Ongoing';
             }
         }
@@ -1644,7 +1660,7 @@
         }
 
         function getTATStats(rows) {
-            let pending = 0, overdue = 0, completed = 0;
+            let ongoing = 0, overdue = 0, completed = 0;
             
             rows.forEach(row => {
                 const sheetName = row._sourceSheet || currentSheet;
@@ -1655,14 +1671,14 @@
                 } else if (status === 'Overdue') {
                     overdue++;
                 } else {
-                    pending++;
+                    ongoing++;
                 }
             });
             
             let html = `
                 <div class="stat-item">
-                    <div class="stat-label">⏳ Pending</div>
-                    <div class="stat-value">${pending}</div>
+                    <div class="stat-label">⏳ Ongoing</div>
+                    <div class="stat-value">${ongoing}</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">🚨 Overdue</div>
