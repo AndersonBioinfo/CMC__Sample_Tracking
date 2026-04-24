@@ -1044,40 +1044,45 @@
 
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
-            
-            // 1. Check for Released Status First
-            const relDate = String(getFieldValue(row, 'reportReleasedDate', targetSheet) || '').trim();
-            const rawDataSent = String(getFieldValue(row, 'rawDataSent', targetSheet) || '').trim();
-            
-            let isReleasedDateFilled = relDate && relDate !== '-' && relDate.toLowerCase() !== 'n/a';
-            let isRawDataSentFilled = rawDataSent && rawDataSent !== '-' && rawDataSent.toLowerCase() !== 'n/a';
-            
-            // Fallback: raw key scan in case column wasn't mapped by COLUMN_PATTERNS
-            if (!isReleasedDateFilled || !isRawDataSentFilled) {
-                for (const key of Object.keys(row)) {
-                    if (key === '_sourceSheet') continue;
-                    const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const val = String(row[key] || '').trim();
-                    if (!val || val === '-' || val.toLowerCase() === 'n/a') continue;
 
-                    // Match any released/dispatched/issued date column
-                    if (!isReleasedDateFilled && (
-                        norm.includes('releaseddate') || norm.includes('releasedate') ||
-                        norm.includes('reportrelease') || norm.includes('released') ||
-                        norm === 'dispatchdate' || norm === 'issueddate' || norm === 'completiondate'
-                    )) {
-                        isReleasedDateFilled = true;
-                    }
-                    // Match any raw data sent column (including "Raw Data Sent To")
-                    // Removed: norm !== 'rawdatasentto' — that column IS valid when filled
-                    if (!isRawDataSentFilled &&
-                        norm.includes('rawdatasent') && !norm.includes('link')
-                    ) {
-                        isRawDataSentFilled = true;
-                    }
+            // Helper: is a cell value "filled" (non-empty, non-placeholder, non-zero)?
+            const isFilled = (v) => {
+                const s = String(v == null ? '' : v).trim();
+                if (!s || s === '0' || s === '-' || s === 'false' || s.toLowerCase() === 'n/a') return false;
+                return true;
+            };
+
+            // 1. Check for Released Status — ALWAYS scan ALL keys directly (no mapping dependency).
+            //    This is the most reliable approach: if ANY column whose name suggests
+            //    "released" or "raw data sent" has a non-empty value, mark as Released.
+            let isReleasedDateFilled = false;
+            let isRawDataSentFilled = false;
+
+            for (const key of Object.keys(row)) {
+                if (key === '_sourceSheet') continue;
+                const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+                const val = row[key];
+                if (!isFilled(val)) continue;
+
+                // Report released / dispatched / issued date columns
+                if (!isReleasedDateFilled && (
+                    norm.includes('released') ||
+                    norm.includes('releasedate') ||
+                    norm === 'dispatchdate' || norm === 'issueddate' || norm === 'completiondate'
+                )) {
+                    isReleasedDateFilled = true;
                 }
+
+                // Raw data sent columns (any variant, including "Raw Data Sent To")
+                if (!isRawDataSentFilled &&
+                    norm.includes('rawdatasent') && !norm.includes('link')
+                ) {
+                    isRawDataSentFilled = true;
+                }
+
+                if (isReleasedDateFilled && isRawDataSentFilled) break;
             }
-            
+
             if (isReleasedDateFilled || isRawDataSentFilled) {
                 return 'Released';
             }
