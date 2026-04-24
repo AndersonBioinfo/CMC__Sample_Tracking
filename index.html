@@ -1111,23 +1111,31 @@
             // 3. Check TAT crossing logic
             const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
             const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
-            
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             const tatReportDate = parseDate(tatReportText);
             const tatRawDataDate = parseDate(tatRawDataText);
-            
+
             const isTatReportCrossed = tatReportDate && tatReportDate < today;
             const isTatRawDataCrossed = tatRawDataDate && tatRawDataDate < today;
-            
+
+            // Does this sheet actually have a TAT Raw Data column?
+            const hasRawDataCol = !!(columnMappings[targetSheet] && columnMappings[targetSheet].tatRawData);
+
             if (isFetus) {
-                // For fetus samples: check only TAT report
+                // Fetus samples: only TAT Report determines overdue
                 if (isTatReportCrossed) return 'Overdue';
                 return 'Ongoing';
             } else {
-                // For all other samples: BOTH TAT report AND TAT Raw data must be crossed
-                if (isTatReportCrossed && isTatRawDataCrossed) return 'Overdue';
+                if (hasRawDataCol) {
+                    // Sheet has both TAT columns → BOTH must be crossed to be Overdue
+                    if (isTatReportCrossed && isTatRawDataCrossed) return 'Overdue';
+                } else {
+                    // Sheet only has TAT Report column → that alone determines Overdue
+                    if (isTatReportCrossed) return 'Overdue';
+                }
                 return 'Ongoing';
             }
         }
