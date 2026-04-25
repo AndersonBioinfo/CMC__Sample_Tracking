@@ -1074,19 +1074,21 @@
 
             if (foundKeyword) return foundKeyword;
 
-            // --- END-OF-ROW INSPECTOR ---
-            const keys = Object.keys(row).filter(k => k !== '_sourceSheet');
-            const vals = keys.map(k => row[k]);
-            const lastFive = vals.slice(-5).map((v, i) => `[${keys.length - 4 + i}]:${String(v).substring(0, 8)}`).join(' | ');
-            return `EMPTY (Total Cols: ${keys.length}) | Last 5: ${lastFive}`;
-
             // 2. Secondary Logic: Check the mapped "Status" column specifically
+            let rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
+            if (rawStatus.includes('release')) return 'Released';
+            if (rawStatus.includes('ongoing')) return 'Ongoing';
+            if (rawStatus.includes('pending')) return 'Overdue';
+
+            // 3. Fallback: Check for Released Status via date-like column values (Old logic)
+            let isReleasedDateFilled = false;
+            let isRawDataSentFilled = false;
+
             for (const key of Object.keys(row)) {
                 if (key === '_sourceSheet') continue;
                 const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
                 const val = row[key];
                 
-                // Helper: is a cell value "filled"?
                 const isFilled = (v) => {
                     const s = String(v == null ? '' : v).trim();
                     if (!s || s === '0' || s === '-' || s === 'false' || s.toLowerCase() === 'n/a') return false;
