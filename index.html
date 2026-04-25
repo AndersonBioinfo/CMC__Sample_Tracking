@@ -1056,10 +1056,25 @@
             return null;
         }
 
+        // Returns a Date for a sheet name like "Mar 2026", "AUG 2025", "July 2025"
+        function getSheetDate(name) {
+            const m = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+            const parts = String(name).trim().toLowerCase().split(/\s+/);
+            if (parts.length < 2) return null;
+            const month = m[parts[0].substring(0, 3)];
+            const year  = parseInt(parts[1]);
+            return (month !== undefined && !isNaN(year)) ? new Date(year, month, 1) : null;
+        }
+
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
 
-            // Read Status column value — try every possible key form
+            // Every sheet up to and including Mar 2026 → Released
+            const sheetDate = getSheetDate(targetSheet);
+            const cutoff    = new Date(2026, 2, 1); // March 2026
+            if (sheetDate && sheetDate <= cutoff) return 'Released';
+
+            // Apr 2026 onwards → read Status column directly
             const statusVal =
                 row['Status'] ??
                 row['status'] ??
