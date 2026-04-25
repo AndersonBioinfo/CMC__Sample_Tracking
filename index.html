@@ -1045,22 +1045,26 @@
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
 
-            // 1. Primary Logic: Check the "Status" column from the Google Sheet (User Requested)
-            const rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
+            // 1. Primary Logic: Check the mapped "Status" column
+            let rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
+            
+            // 2. Self-Healing: If mapped status is empty, scan ALL columns for keywords
+            if (!rawStatus) {
+                for (const key of Object.keys(row)) {
+                    if (key === '_sourceSheet') continue;
+                    const val = String(row[key] || '').trim().toLowerCase();
+                    if (val === 'released' || val === 'ongoing' || val === 'pending') {
+                        rawStatus = val;
+                        break;
+                    }
+                }
+            }
             
             if (rawStatus === 'released') return 'Released';
             if (rawStatus === 'ongoing') return 'Ongoing';
             if (rawStatus === 'pending') return 'Overdue';
 
-            // 2. Fallback Logic: (Existing logic for sheets without a clear status column)
-            // Helper: is a cell value "filled" (non-empty, non-placeholder, non-zero)?
-            const isFilled = (v) => {
-                const s = String(v == null ? '' : v).trim();
-                if (!s || s === '0' || s === '-' || s === 'false' || s.toLowerCase() === 'n/a') return false;
-                return true;
-            };
-
-            // Check for Released Status via date columns as fallback
+            // 3. Fallback: Check for Released Status via date keywords (if no status column found)
             let isReleasedDateFilled = false;
             let isRawDataSentFilled = false;
 
@@ -1068,56 +1072,31 @@
                 if (key === '_sourceSheet') continue;
                 const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
                 const val = row[key];
+                
+                // Helper: is a cell value "filled"?
+                const isFilled = (v) => {
+                    const s = String(v == null ? '' : v).trim();
+                    if (!s || s === '0' || s === '-' || s === 'false' || s.toLowerCase() === 'n/a') return false;
+                    return true;
+                };
+
                 if (!isFilled(val)) continue;
 
                 if (!isReleasedDateFilled && (
-                    norm.includes('released') ||
-                    norm.includes('releasedate') ||
+                    norm.includes('released') || norm.includes('releasedate') ||
                     norm === 'dispatchdate' || norm === 'issueddate' || norm === 'completiondate'
                 )) {
                     isReleasedDateFilled = true;
                 }
 
-                if (!isRawDataSentFilled &&
-                    norm.includes('rawdatasent') && !norm.includes('link')
-                ) {
+                if (!isRawDataSentFilled && norm.includes('rawdatasent') && !norm.includes('link')) {
                     isRawDataSentFilled = true;
                 }
-
-                if (isReleasedDateFilled || isRawDataSentFilled) break;
             }
 
-            if (isReleasedDateFilled || isRawDataSentFilled) {
-                return 'Released';
-            }
+            if (isReleasedDateFilled || isRawDataSentFilled) return 'Released';
             
-            // 2. Identify if it's a Fetus Sample
-            let isFetus = false;
-            const fetusKeywords = ['FETUS', 'FETAL'];
-            const mappedFieldsToCheck = ['testType', 'sampleType', 'sampleName', 'remarks'];
-            
-            // Check mapped fields first
-            for (const field of mappedFieldsToCheck) {
-                const val = String(getFieldValue(row, field, targetSheet) || '').toUpperCase();
-                if (fetusKeywords.some(kw => val.includes(kw))) {
-                    isFetus = true;
-                    break;
-                }
-            }
-            
-            // Fallback: scan ALL row values for fetus keywords
-            if (!isFetus) {
-                for (const key of Object.keys(row)) {
-                    if (key === '_sourceSheet') continue;
-                    const val = String(row[key] || '').toUpperCase();
-                    if (fetusKeywords.some(kw => val.includes(kw))) {
-                        isFetus = true;
-                        break;
-                    }
-                }
-            }
-            
-            // 3. Check TAT crossing logic
+            // 4. Final Fallback: Date-based Overdue logic
             const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
             const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
 
@@ -1129,23 +1108,27 @@
 
             const isTatReportCrossed = tatReportDate && tatReportDate < today;
             const isTatRawDataCrossed = tatRawDataDate && tatRawDataDate < today;
-
-            // Does this sheet actually have a TAT Raw Data column?
             const hasRawDataCol = !!(columnMappings[targetSheet] && columnMappings[targetSheet].tatRawData);
 
+            // Fetus samples check
+            let isFetus = false;
+            const fetusKeywords = ['FETUS', 'FETAL'];
+            for (const key of Object.keys(row)) {
+                if (key === '_sourceSheet') continue;
+                if (fetusKeywords.some(kw => String(row[key] || '').toUpperCase().includes(kw))) {
+                    isFetus = true;
+                    break;
+                }
+            }
+
             if (isFetus) {
-                // Fetus samples: only TAT Report determines overdue
-                if (isTatReportCrossed) return 'Overdue';
-                return 'Ongoing';
+                return isTatReportCrossed ? 'Overdue' : 'Ongoing';
             } else {
                 if (hasRawDataCol) {
-                    // Sheet has both TAT columns → BOTH must be crossed to be Overdue
-                    if (isTatReportCrossed && isTatRawDataCrossed) return 'Overdue';
+                    return (isTatReportCrossed && isTatRawDataCrossed) ? 'Overdue' : 'Ongoing';
                 } else {
-                    // Sheet only has TAT Report column → that alone determines Overdue
-                    if (isTatReportCrossed) return 'Overdue';
+                    return isTatReportCrossed ? 'Overdue' : 'Ongoing';
                 }
-                return 'Ongoing';
             }
         }
 
@@ -1503,6 +1486,7 @@
             // Generate Columns config
             const cols = [
                 { title: 'Sample Name', getValue: (r) => keyMap.sampleName ? r[keyMap.sampleName] : '' },
+                { title: 'Status', getValue: (r) => calculateStatus(r, r._sourceSheet) },
                 { title: 'Gender', getValue: (r) => { 
                     const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
                     let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|\(]\s*([MF])\s*(?:[\/\-\s,\|\)]|$)/i);
@@ -1616,9 +1600,6 @@
             };
 
             otherKeys.forEach(ok => cols.push({ title: formatHeader(ok), getValue: (r) => r[ok] }));
-            cols.push({ title: 'Status', getValue: (r) => {
-                return calculateStatus(r, r._sourceSheet);
-            }});
 
             currentTableCols = cols;
 
