@@ -1485,8 +1485,7 @@
             // Generate Columns config
             const cols = [
                 { title: 'Sample Name', getValue: (r) => keyMap.sampleName ? r[keyMap.sampleName] : '' },
-                { title: 'Status', getValue: (r) => calculateStatus(r, r._sourceSheet) },
-                { title: 'Gender', getValue: (r) => { 
+                { title: 'Gender', getValue: (r) => {
                     const s = keyMap.sampleName ? String(r[keyMap.sampleName] || '') : '';
                     let m = s.match(/\b(MALE|FEMALE)\b/i) || s.match(/[\/\-\s,\|\(]\s*([MF])\s*(?:[\/\-\s,\|\)]|$)/i);
                     if (m) {
@@ -1584,7 +1583,8 @@
                 { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
                 { title: 'Raw Data Date', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
                 { title: 'TAT Report Date', getValue: (r) => keyMap.tatReportDate ? r[keyMap.tatReportDate] : '' },
-                { title: 'Report Released Date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' }
+                { title: 'Report Released Date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' },
+                { title: 'Status', getValue: (r) => calculateStatus(r, r._sourceSheet) }
             ];
 
             const formatHeader = (key) => {
@@ -1631,13 +1631,7 @@
                     const value = col.getValue(row);
                     if (col.title === 'Status') {
                         const statusClass = getTATClass(calculateStatus(row, row._sourceSheet));
-                        const rowJson = JSON.stringify(row).replace(/'/g, "&#39;");
-                        html += `<td>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span class="status-pill ${statusClass}">${value}</span>
-                                <span style="cursor:pointer; font-size:14px;" onclick='alert("RAW DATA:\\n" + JSON.stringify(${rowJson}, null, 2))' title="Debug Data">🔍</span>
-                            </div>
-                        </td>`;
+                        html += `<td><span class="status-pill ${statusClass}">${value}</span></td>`;
                     } else {
                         html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
