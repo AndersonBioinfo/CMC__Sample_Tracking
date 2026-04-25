@@ -1044,30 +1044,44 @@
 
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
-
-            // 1. Primary Logic: Check the mapped "Status" column
-            let rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
             
-            // 2. Self-Healing: If mapped status is empty, scan ALL columns for keywords
-            if (!rawStatus) {
-                for (const key of Object.keys(row)) {
-                    if (key === '_sourceSheet') continue;
-                    const val = String(row[key] || '').trim().toLowerCase();
-                    if (val === 'released' || val === 'ongoing' || val === 'pending') {
-                        rawStatus = val;
-                        break;
+            // --- NUCLEAR STATUS DETECTION ---
+            // Scan EVERY cell in the row for status keywords. 
+            // If any cell contains "release", it's Released. Period.
+            let foundKeyword = null;
+            let foundInColumn = null;
+
+            for (const key of Object.keys(row)) {
+                if (key === '_sourceSheet') continue;
+                const val = String(row[key] || '').trim().toLowerCase();
+                
+                if (val.includes('released') || val === 'released' || val.includes('release')) {
+                    foundKeyword = 'Released';
+                    foundInColumn = key;
+                    break;
+                }
+                if (val === 'ongoing' || val.includes('ongoing')) {
+                    foundKeyword = 'Ongoing';
+                    foundInColumn = key;
+                }
+                if (val === 'pending' || val.includes('pending')) {
+                    // Only set pending if we haven't found a better status yet
+                    if (!foundKeyword) {
+                        foundKeyword = 'Overdue';
+                        foundInColumn = key;
                     }
                 }
             }
-            
-            if (rawStatus === 'released') return 'Released';
-            if (rawStatus === 'ongoing') return 'Ongoing';
-            if (rawStatus === 'pending') return 'Overdue';
 
-            // 3. Fallback: Check for Released Status via date keywords (if no status column found)
-            let isReleasedDateFilled = false;
-            let isRawDataSentFilled = false;
+            if (foundKeyword) return foundKeyword;
 
+            // 2. Secondary Logic: Check the mapped "Status" column specifically
+            let rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
+            if (rawStatus.includes('release')) return 'Released';
+            if (rawStatus.includes('ongoing')) return 'Ongoing';
+            if (rawStatus.includes('pending')) return 'Overdue';
+
+            // 3. Fallback: Check for Released Status via date-like column values
             for (const key of Object.keys(row)) {
                 if (key === '_sourceSheet') continue;
                 const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
