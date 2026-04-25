@@ -1075,11 +1075,15 @@
 
             if (foundKeyword) return foundKeyword;
 
-            // --- DIAGNOSTIC FALLBACK ---
-            // If we are here, NO cell in the row contains "released".
-            // Let's see what columns we actually have.
-            const allKeys = Object.keys(row).filter(k => k !== '_sourceSheet');
-            return `Missing (Cols: ${allKeys.length})`;
+            if (foundKeyword) return foundKeyword;
+
+            // --- DATA INSPECTOR ---
+            // Show the first few characters of each cell to see what is actually there
+            const rawValues = Object.values(row)
+                .filter(v => typeof v !== 'object')
+                .map(v => String(v).substring(0, 5))
+                .join('|');
+            return `No Match: ${rawValues.substring(0, 40)}`;
 
             // 2. Secondary Logic: Check the mapped "Status" column specifically
             for (const key of Object.keys(row)) {
