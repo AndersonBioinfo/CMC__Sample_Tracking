@@ -1044,35 +1044,38 @@
 
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
-            
+
             // --- UNIVERSAL STATUS DETECTION ---
             let rawStatus = '';
 
-            // 1. Try the mapped 'status' column (if Apps Script is updated)
-            if (row.hasOwnProperty('status') && row.status) {
-                rawStatus = String(row.status).trim().toLowerCase();
-            } 
-            
-            // 2. NUCLEAR FALLBACK: Scan ALL columns for keywords (Works even with old Apps Script)
+            // 1. Try the mapped 'status' column via column mapping system
+            const statusValue = getFieldValue(row, 'status', targetSheet);
+            if (statusValue) {
+                rawStatus = String(statusValue).trim().toLowerCase();
+            }
+
+            // 2. NUCLEAR FALLBACK: Scan ALL columns for keywords (Works even without a status column)
+            // Skip the already-checked status column to avoid double-counting
+            const statusMappedCol = columnMappings[targetSheet] && columnMappings[targetSheet].status;
             if (!rawStatus || !rawStatus.includes('release')) {
                 for (const key of Object.keys(row)) {
-                    if (key === '_sourceSheet' || key === 'status') continue;
-                    
+                    if (key === '_sourceSheet' || key === 'status' || (statusMappedCol && key === statusMappedCol)) continue;
+
                     const val = String(row[key] || '').trim().toLowerCase();
                     const isFilled = val && val !== '0' && val !== '-' && val.toLowerCase() !== 'n/a';
-                    
+
                     // If the cell text says "released"
                     if (val.includes('released') || val.includes('release') || val.includes('complete')) {
                         rawStatus = 'released';
                         break;
                     }
-                    
-                    // NEW: If the COLUMN NAME says "release" and the cell is NOT empty
+
+                    // If the COLUMN NAME says "release" and the cell is NOT empty
                     if (isFilled && (key.toLowerCase().includes('release') || key.toLowerCase().includes('dispatch'))) {
                         rawStatus = 'released';
                         break;
                     }
-                    
+
                     if (val.includes('ongoing') || val.includes('process')) {
                         if (!rawStatus) rawStatus = 'ongoing';
                     }
@@ -1081,7 +1084,7 @@
                     }
                 }
             }
-            
+
             if (rawStatus.includes('release') || rawStatus.includes('complete')) return 'Released';
             if (rawStatus.includes('ongoing')) return 'Ongoing';
             if (rawStatus.includes('pending')) return 'Overdue';
@@ -1090,10 +1093,9 @@
             const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
             const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
 
-            // FINAL SAFETY: If we are here and still don't have a status, 
-            // check if "Report Released Date" exists and is filled.
-            const releasedDate = row.reportReleasedDate; // Check the JSON key directly
-            if (releasedDate && releasedDate !== '' && releasedDate !== '-') {
+            // FINAL SAFETY: Check if Report Released Date is filled via column mapping
+            const releasedDate = getFieldValue(row, 'reportReleasedDate', targetSheet);
+            if (releasedDate && String(releasedDate).trim() !== '' && String(releasedDate).trim() !== '-') {
                 return 'Released';
             }
 
