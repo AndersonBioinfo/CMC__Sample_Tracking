@@ -1423,10 +1423,36 @@
             if (activeFilterFn) {
                 const filtered = rowsWithSource.filter(row => activeFilterFn(row, sheetName));
                 currentView = filtered;
-                renderTable(filtered, `${sheetName} - ${activeFilterLabel}`, sheetData.headers);
+                if (filtered.length === 0) {
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="no-data">
+                            No matching samples in <strong>${sheetName}</strong><br>
+                            <button onclick="showAllFilteredMonths()" style="margin-top:15px;padding:10px 24px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;">
+                                Show All Months
+                            </button>
+                        </div>`;
+                } else {
+                    renderTable(filtered, `${sheetName} - ${activeFilterLabel}`, sheetData.headers);
+                }
             } else {
                 currentView = rowsWithSource;
                 renderTable(rowsWithSource, `${sheetName} - All Samples`, sheetData.headers);
+            }
+        }
+
+        function showAllFilteredMonths() {
+            if (!activeFilterFn) { showAllSheets(); return; }
+            const filteredData = [];
+            Object.keys(allData).forEach(sheetName => {
+                allData[sheetName].rows.forEach(row => {
+                    const rowWithSource = { ...row, _sourceSheet: sheetName };
+                    if (activeFilterFn(rowWithSource, sheetName)) filteredData.push(rowWithSource);
+                });
+            });
+            if (filteredData.length > 0) {
+                currentView = filteredData;
+                renderTable(filteredData, activeFilterLabel);
+                document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             }
         }
 
