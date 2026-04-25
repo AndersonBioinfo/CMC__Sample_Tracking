@@ -1071,22 +1071,30 @@
 
             // Every sheet up to and including Mar 2026 → Released
             const sheetDate = getSheetDate(targetSheet);
-            const cutoff    = new Date(2026, 2, 1); // March 2026
-            if (sheetDate && sheetDate <= cutoff) return 'Released';
+            if (sheetDate && sheetDate <= new Date(2026, 2, 1)) return 'Released';
 
-            // Apr 2026 onwards → read Status column directly
-            const statusVal =
-                row['Status'] ??
-                row['status'] ??
-                row['STATUS'] ??
-                getFieldValue(row, 'status', targetSheet);
+            // Apr 2026 onwards → read Status column only
+            // 1. Try the three common key spellings (|| skips empty strings too)
+            let statusVal = row['Status'] || row['status'] || row['STATUS'] || '';
 
-            if (statusVal !== null && statusVal !== undefined) {
-                const v = String(statusVal).trim().toLowerCase();
-                if (v.includes('release') || v.includes('complete')) return 'Released';
-                if (v.includes('pending') || v.includes('overdue')) return 'Overdue';
-                if (v.includes('ongoing') || v.includes('progress')) return 'Ongoing';
+            // 2. If still empty, scan every key whose letters spell out "status"
+            if (!statusVal) {
+                for (const key of Object.keys(row)) {
+                    if (key === '_sourceSheet') continue;
+                    if (key.toLowerCase().replace(/[^a-z]/g, '') === 'status') {
+                        statusVal = row[key] || '';
+                        break;
+                    }
+                }
             }
+
+            // 3. Column-mapping fallback
+            if (!statusVal) statusVal = getFieldValue(row, 'status', targetSheet) || '';
+
+            const v = String(statusVal).trim().toLowerCase();
+            if (v.includes('release') || v.includes('complete')) return 'Released';
+            if (v.includes('pending') || v.includes('overdue')) return 'Overdue';
+            if (v.includes('ongoing') || v.includes('progress')) return 'Ongoing';
 
             return 'Ongoing';
         }
