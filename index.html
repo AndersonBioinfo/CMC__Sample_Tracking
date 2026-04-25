@@ -1058,60 +1058,43 @@
 
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
+            const kn = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            // --- UNIVERSAL STATUS DETECTION ---
-            let rawStatus = '';
-
-            // 1. Try the mapped 'status' column via column mapping system
-            const statusValue = getFieldValue(row, 'status', targetSheet);
-            if (statusValue) {
-                rawStatus = String(statusValue).trim().toLowerCase();
+            // STEP 1: Direct scan for Status column (case-insensitive key match).
+            // Does NOT rely on column mapping — reads whatever key normalises to "status".
+            let pendingFromStatus = false;
+            for (const key of Object.keys(row)) {
+                if (key === '_sourceSheet') continue;
+                const k = kn(key);
+                if (k === 'status' || k === 'reportstatus' || k === 'samplestatus' || k === 'processstatus') {
+                    const val = String(row[key] || '').trim().toLowerCase();
+                    if (!val || val === '-' || val === '0') break;
+                    if (val.includes('release') || val.includes('complete')) return 'Released';
+                    if (val.includes('ongoing') || val.includes('in progress')) return 'Ongoing';
+                    if (val.includes('pending')) pendingFromStatus = true;
+                    break; // Status column found — stop scanning
+                }
             }
 
-            // 2. NUCLEAR FALLBACK: Scan ALL columns for keywords (Works even without a status column)
-            // Skip the already-checked status column to avoid double-counting
-            const statusMappedCol = columnMappings[targetSheet] && columnMappings[targetSheet].status;
-            if (!rawStatus || !rawStatus.includes('release')) {
-                for (const key of Object.keys(row)) {
-                    if (key === '_sourceSheet' || key === 'status' || (statusMappedCol && key === statusMappedCol)) continue;
-
-                    const val = String(row[key] || '').trim().toLowerCase();
-                    const isFilled = val && val !== '0' && val !== '-' && val.toLowerCase() !== 'n/a';
-
-                    // If the cell text says "released"
-                    if (val.includes('released') || val.includes('release') || val.includes('complete')) {
-                        rawStatus = 'released';
-                        break;
-                    }
-
-                    // If the COLUMN NAME says "release" and the cell is NOT empty
-                    if (isFilled && (key.toLowerCase().includes('release') || key.toLowerCase().includes('dispatch'))) {
-                        rawStatus = 'released';
-                        break;
-                    }
-
-                    if (val.includes('ongoing') || val.includes('process')) {
-                        if (!rawStatus) rawStatus = 'ongoing';
-                    }
-                    if (val.includes('pending')) {
-                        if (!rawStatus) rawStatus = 'pending';
+            // STEP 2: Check any column whose NAME contains "released" or "dispatch" for a filled date.
+            // "Report  released date", "Dispatched Date", etc.
+            for (const key of Object.keys(row)) {
+                if (key === '_sourceSheet') continue;
+                const k = kn(key);
+                if (k.includes('released') || k.includes('dispatch')) {
+                    const val = String(row[key] || '').trim();
+                    if (val && val !== '-' && val !== '0' && val.toLowerCase() !== 'n/a') {
+                        return 'Released';
                     }
                 }
             }
 
-            if (rawStatus.includes('release') || rawStatus.includes('complete')) return 'Released';
-            if (rawStatus.includes('ongoing')) return 'Ongoing';
-            if (rawStatus.includes('pending')) return 'Overdue';
+            // If Status column explicitly said "pending" and no release date found → Overdue
+            if (pendingFromStatus) return 'Overdue';
 
-            // 3. Date-based fallback logic (if no status found anywhere)
+            // STEP 3: Date-based fallback using TAT columns (for sheets without Status column)
             const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
             const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
-
-            // FINAL SAFETY: Check if Report Released Date is filled via column mapping
-            const releasedDate = getFieldValue(row, 'reportReleasedDate', targetSheet);
-            if (releasedDate && String(releasedDate).trim() !== '' && String(releasedDate).trim() !== '-') {
-                return 'Released';
-            }
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1123,14 +1106,12 @@
             const isTatRawDataCrossed = tatRawDataDate && tatRawDataDate < today;
             const hasRawDataCol = !!(columnMappings[targetSheet] && columnMappings[targetSheet].tatRawData);
 
-            // Fetus samples check
+            // Fetus samples need both TAT dates crossed to be Overdue
             let isFetus = false;
-            const fetusKeywords = ['FETUS', 'FETAL'];
             for (const key of Object.keys(row)) {
                 if (key === '_sourceSheet') continue;
-                if (fetusKeywords.some(kw => String(row[key] || '').toUpperCase().includes(kw))) {
-                    isFetus = true;
-                    break;
+                if (['FETUS', 'FETAL'].some(kw => String(row[key] || '').toUpperCase().includes(kw))) {
+                    isFetus = true; break;
                 }
             }
 
