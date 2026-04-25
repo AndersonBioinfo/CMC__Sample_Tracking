@@ -1070,42 +1070,26 @@
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
 
-            // Every sheet up to and including Mar 2026 → Released
+            // Sheets up to and including Mar 2026 → all Released
             const sheetDate = getSheetDate(targetSheet);
             if (sheetDate && sheetDate <= new Date(2026, 2, 1)) return 'Released';
 
-            // Apr 2026 onwards → read Status column
-            // The Apps Script sends camelCase keys — try every likely form
-            let statusVal = row['Status'] || row['status'] || row['STATUS'] || '';
+            // Apr 2026 onwards:
+            // Released only when BOTH rawDataReceived AND reportReleasedDate are filled
+            const isFilled = v => { const s = String(v || '').trim(); return s && s !== '-' && s !== '0'; };
 
-            // Scan every key whose letters-only form equals "status"
-            if (!statusVal) {
-                for (const key of Object.keys(row)) {
-                    if (key === '_sourceSheet') continue;
-                    if (key.toLowerCase().replace(/[^a-z]/g, '') === 'status') {
-                        statusVal = row[key] || '';
-                        break;
-                    }
-                }
-            }
+            const rawDate = row['rawDataReceived'] || row['rawDataSent'] || '';
+            const relDate = row['reportReleasedDate'] || '';
 
-            // Column-mapping fallback
-            if (!statusVal) statusVal = getFieldValue(row, 'status', targetSheet) || '';
+            if (isFilled(rawDate) && isFilled(relDate)) return 'Released';
 
-            if (statusVal) {
-                const v = String(statusVal).trim().toLowerCase();
-                if (v.includes('release') || v.includes('complete')) return 'Released';
-                if (v.includes('pending') || v.includes('overdue')) return 'Overdue';
-                if (v.includes('ongoing') || v.includes('progress')) return 'Ongoing';
-            }
+            // Not released — use TAT report date to decide Ongoing vs Overdue
+            const tatText = row['tatReport'] || getFieldValue(row, 'tatReport', targetSheet) || '';
+            const tatDate = parseDate(tatText);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-            // Status column not in Apps Script response — use reportReleasedDate as fallback
-            // The Apps Script sends this as camelCase: row['reportReleasedDate']
-            const relDate = row['reportReleasedDate'] ||
-                            getFieldValue(row, 'reportReleasedDate', targetSheet) || '';
-            const rd = String(relDate).trim();
-            if (rd && rd !== '-' && rd !== '0') return 'Released';
-
+            if (tatDate && tatDate < today) return 'Overdue';
             return 'Ongoing';
         }
 
