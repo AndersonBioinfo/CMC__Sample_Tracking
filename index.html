@@ -1075,13 +1075,13 @@
 
             if (foundKeyword) return foundKeyword;
 
-            // 2. Secondary Logic: Check the mapped "Status" column specifically
-            let rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
-            if (rawStatus.includes('release')) return 'Released';
-            if (rawStatus.includes('ongoing')) return 'Ongoing';
-            if (rawStatus.includes('pending')) return 'Overdue';
+            // --- DIAGNOSTIC FALLBACK ---
+            // If we are here, NO cell in the row contains "released".
+            // Let's see what columns we actually have.
+            const allKeys = Object.keys(row).filter(k => k !== '_sourceSheet');
+            return `Missing (Cols: ${allKeys.length})`;
 
-            // 3. Fallback: Check for Released Status via date-like column values
+            // 2. Secondary Logic: Check the mapped "Status" column specifically
             for (const key of Object.keys(row)) {
                 if (key === '_sourceSheet') continue;
                 const norm = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
