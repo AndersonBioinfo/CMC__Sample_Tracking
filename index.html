@@ -737,7 +737,9 @@
         let currentSheet = '';
         let sortColumn = null;
         let sortDirection = 'asc';
-        let columnMappings = {}; // Store mappings per sheet
+        let columnMappings = {};
+        let activeFilterFn = null;
+        let activeFilterLabel = '';
 
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
@@ -1389,37 +1391,43 @@
         }
 
         function showAllSheets() {
+            activeFilterFn = null;
+            activeFilterLabel = '';
             document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
-            
+
             const sortedSheets = getSortedSheetNames();
             if (sortedSheets.length > 0) {
-                const firstSheet = sortedSheets[0]; // Now the most recent
-                displaySheet(firstSheet);
+                displaySheet(sortedSheets[0]);
             }
         }
 
         function displaySheet(sheetName) {
             currentSheet = sheetName;
-            
+
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.toggle('active', tab.textContent === sheetName);
             });
-            
+
             const sheetData = allData[sheetName];
             if (!sheetData || sheetData.rows.length === 0) {
                 document.getElementById('contentArea').innerHTML = '<div class="no-data">No data available in this sheet</div>';
                 return;
             }
-            
-            // Add source sheet to each row for proper column mapping
+
             const rowsWithSource = sheetData.rows.map(row => ({
                 ...row,
                 _sourceSheet: sheetName
             }));
-            
-            currentView = rowsWithSource;
-            renderTable(rowsWithSource, `${sheetName} - All Samples`, sheetData.headers);
+
+            if (activeFilterFn) {
+                const filtered = rowsWithSource.filter(row => activeFilterFn(row, sheetName));
+                currentView = filtered;
+                renderTable(filtered, `${sheetName} - ${activeFilterLabel}`, sheetData.headers);
+            } else {
+                currentView = rowsWithSource;
+                renderTable(rowsWithSource, `${sheetName} - All Samples`, sheetData.headers);
+            }
         }
 
         let currentTableCols = []; // Track column definitions for current table to enable correct sorting.
@@ -1923,16 +1931,35 @@
                 const year = document.getElementById('yearSelect').value;
                 title += ` - Year ${year}`;
             } else {
-                title += ' - Total (All Time)';
+                title += ' - All Months';
             }
-            
+
             if (filteredData.length === 0) {
                 alert('No data found for the selected criteria');
                 return;
             }
-            
+
+            // Save filter so tab navigation preserves it
+            const _client = client;
+            const _viewType = viewType;
+            const _month = viewType === 'month' ? parseInt(document.getElementById('monthSelect').value) : null;
+            const _monthYear = viewType === 'month' ? parseInt(document.getElementById('monthYearSelect').value) : null;
+            const _year = viewType === 'year' ? parseInt(document.getElementById('yearSelect').value) : null;
+            activeFilterFn = (row, sheetName) => {
+                const rowClient = getNormalizedClientName(getFieldValue(row, 'clientName', sheetName));
+                if (_client && rowClient !== _client) return false;
+                if (_viewType === 'total') return true;
+                let d = parseDate(getFieldValue(row, 'receivedDate', sheetName));
+                if (!d) d = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                if (_viewType === 'month') return d && d.getMonth() + 1 === _month && d.getFullYear() === _monthYear;
+                if (_viewType === 'year') return d && d.getFullYear() === _year;
+                return true;
+            };
+            activeFilterLabel = title;
+
             currentView = filteredData;
             renderTable(filteredData, title);
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         }
 
         function applyTATFilter() {
@@ -1984,20 +2011,48 @@
                 });
             });
             
-            let title = (tatStatus === 'not_crossed') ? '⏳ Ongoing reports' : 
+            let title = (tatStatus === 'not_crossed') ? '⏳ Ongoing reports' :
                         (tatStatus === 'crossed') ? '🚨 Overdue reports' : '✅ Released reports';
-            
+
             if (viewType === 'date' && tatStatus === 'completed') title += ` on ${document.getElementById('tatDateSelect').value}`;
             else if (viewType === 'month') title += ` - ${document.getElementById('tatMonthSelect').options[document.getElementById('tatMonthSelect').selectedIndex].text} ${document.getElementById('tatMonthYearSelect').value}`;
             else if (viewType === 'year') title += ` - Year ${document.getElementById('tatYearSelect').value}`;
+            else title += ' - All Months';
 
             if (filteredData.length === 0) {
                 alert('No data found for this selection');
                 return;
             }
-            
+
+            // Save filter so tab navigation preserves it
+            const _tatStatus = tatStatus;
+            const _viewType = viewType;
+            const _month = viewType === 'month' ? parseInt(document.getElementById('tatMonthSelect').value) : null;
+            const _monthYear = viewType === 'month' ? parseInt(document.getElementById('tatMonthYearSelect').value) : null;
+            const _year = viewType === 'year' ? parseInt(document.getElementById('tatYearSelect').value) : null;
+            const _dateStr = viewType === 'date' ? document.getElementById('tatDateSelect').value : null;
+            activeFilterFn = (row, sheetName) => {
+                const rowWithSource = { ...row, _sourceSheet: sheetName };
+                const status = calculateStatus(rowWithSource, sheetName);
+                let statusMatch = (_tatStatus === 'completed' && status === 'Released') ||
+                                  (_tatStatus === 'not_crossed' && status === 'Ongoing') ||
+                                  (_tatStatus === 'crossed' && status === 'Overdue');
+                if (!statusMatch) return false;
+                if (_viewType === 'total') return true;
+                const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
+                const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
+                let d = (_tatStatus === 'completed') ? relDate : tatDate;
+                if (!d) d = parseDate(getFieldValue(row, 'receivedDate', sheetName));
+                if (_viewType === 'date') return relDate && relDate.toISOString().split('T')[0] === _dateStr;
+                if (_viewType === 'month') return d && d.getMonth() + 1 === _month && d.getFullYear() === _monthYear;
+                if (_viewType === 'year') return d && d.getFullYear() === _year;
+                return true;
+            };
+            activeFilterLabel = title;
+
             currentView = filteredData;
             renderTable(filteredData, title);
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         }
 
         // Close modal when clicking outside
