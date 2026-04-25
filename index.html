@@ -1073,11 +1073,11 @@
             const sheetDate = getSheetDate(targetSheet);
             if (sheetDate && sheetDate <= new Date(2026, 2, 1)) return 'Released';
 
-            // Apr 2026 onwards → read Status column only
-            // 1. Try the three common key spellings (|| skips empty strings too)
+            // Apr 2026 onwards → read Status column
+            // The Apps Script sends camelCase keys — try every likely form
             let statusVal = row['Status'] || row['status'] || row['STATUS'] || '';
 
-            // 2. If still empty, scan every key whose letters spell out "status"
+            // Scan every key whose letters-only form equals "status"
             if (!statusVal) {
                 for (const key of Object.keys(row)) {
                     if (key === '_sourceSheet') continue;
@@ -1088,13 +1088,22 @@
                 }
             }
 
-            // 3. Column-mapping fallback
+            // Column-mapping fallback
             if (!statusVal) statusVal = getFieldValue(row, 'status', targetSheet) || '';
 
-            const v = String(statusVal).trim().toLowerCase();
-            if (v.includes('release') || v.includes('complete')) return 'Released';
-            if (v.includes('pending') || v.includes('overdue')) return 'Overdue';
-            if (v.includes('ongoing') || v.includes('progress')) return 'Ongoing';
+            if (statusVal) {
+                const v = String(statusVal).trim().toLowerCase();
+                if (v.includes('release') || v.includes('complete')) return 'Released';
+                if (v.includes('pending') || v.includes('overdue')) return 'Overdue';
+                if (v.includes('ongoing') || v.includes('progress')) return 'Ongoing';
+            }
+
+            // Status column not in Apps Script response — use reportReleasedDate as fallback
+            // The Apps Script sends this as camelCase: row['reportReleasedDate']
+            const relDate = row['reportReleasedDate'] ||
+                            getFieldValue(row, 'reportReleasedDate', targetSheet) || '';
+            const rd = String(relDate).trim();
+            if (rd && rd !== '-' && rd !== '0') return 'Released';
 
             return 'Ongoing';
         }
@@ -1632,13 +1641,7 @@
                     const value = col.getValue(row);
                     const tdClass = col.title === 'History' ? ' class="col-history"' : '';
                     if (col.title === 'Status') {
-                        const dbg = JSON.stringify({
-                            'Status': row['Status'],
-                            'status': row['status'],
-                            'STATUS': row['STATUS'],
-                            allKeys: Object.keys(row).filter(k => k !== '_sourceSheet')
-                        });
-                        html += `<td style="cursor:pointer" title="Click to debug" onclick='alert(${JSON.stringify(dbg)})'>${value}</td>`;
+                        html += `<td>${value}</td>`;
                     } else {
                         html += `<td${tdClass}>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
