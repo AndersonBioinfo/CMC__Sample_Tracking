@@ -1632,7 +1632,13 @@
                     const value = col.getValue(row);
                     const tdClass = col.title === 'History' ? ' class="col-history"' : '';
                     if (col.title === 'Status') {
-                        html += `<td>${value}</td>`;
+                        const dbg = JSON.stringify({
+                            'Status': row['Status'],
+                            'status': row['status'],
+                            'STATUS': row['STATUS'],
+                            allKeys: Object.keys(row).filter(k => k !== '_sourceSheet')
+                        });
+                        html += `<td style="cursor:pointer" title="Click to debug" onclick='alert(${JSON.stringify(dbg)})'>${value}</td>`;
                     } else {
                         html += `<td${tdClass}>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
