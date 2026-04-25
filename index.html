@@ -927,43 +927,44 @@
 
         function getNormalizedClientName(name) {
             if (!name) return "";
-
             let clean = String(name).trim().toUpperCase();
-
-            // Remove text in parentheses e.g. "HAEMOTOLOGY(Research)" -> "HAEMOTOLOGY"
             clean = clean.replace(/\s*\(.*?\)\s*/g, ' ').trim();
-
-            // Normalize "DR." variants
             clean = clean.replace(/\bDR\.?\s*/g, 'DR ').trim();
             clean = clean.replace(/\s{2,}/g, ' ');
 
-            // --- CMC sub-departments (check BEFORE generic CMC catch-all) ---
-            if (clean.includes('HAEMOTOL') || clean.includes('HAEMATOL') || clean.includes('HEAMOTOL')) {
-                return 'HAEMOTOLOGY';
-            }
-            // Handle "MEDICAL GENTICS" typo and "MEDICAL GENETICS" correct spelling
+            // CMC sub-departments — kept separate so users can filter by department
+            if (clean.includes('HAEMOTOL') || clean.includes('HAEMATOL') || clean.includes('HEAMOTOL')) return 'HAEMOTOLOGY';
             if (clean.includes('MEDICAL GENET') || clean.includes('MEDICAL GENTIC') ||
-                clean.includes('MEDICALGENETICS') || clean.includes('MEDICALGENTIC')) {
-                return 'MEDICAL GENETICS';
-            }
-            if (clean.includes('NEPHROL')) {
-                return 'NEPHROLOGY';
-            }
-            if (clean.includes('CYTOGENET')) {
-                return 'CYTOGENETICS';
-            }
-            if (clean.includes('MOLECULAR ENDOCRIN') || clean.includes('MOLECULARENDOCRIN')) {
-                return 'MOLECULAR ENDOCRINOLOGY';
-            }
+                clean.includes('MEDICALGENETICS') || clean.includes('MEDICALGENTIC')) return 'MEDICAL GENETICS';
+            if (clean.includes('NEPHROL')) return 'NEPHROLOGY';
+            if (clean.includes('CYTOGENET')) return 'CYTOGENETICS';
+            if (clean.includes('MOLECULAR ENDOCRIN') || clean.includes('MOLECULARENDOCRIN')) return 'MOLECULAR ENDOCRINOLOGY';
 
-            // --- Generic CMC / CHRISTIAN MEDICAL COLLEGE catch-all ---
-            // Handles: "CHRISTIAN MEDICAL COLLEGE - VELLORE", "CMC VELLORE WES billed on...",
-            // "CMC", "cmc vellore", "NOT BILLED CMC VELLORE", "MR.XYZ - CMC", etc.
-            if (clean.includes('CHRISTIAN MEDICAL COLLEGE') || clean.includes('CMC')) {
-                return 'CHRISTIAN MEDICAL COLLEGE';
-            }
+            // Generic CMC catch-all
+            if (clean.includes('CHRISTIAN MEDICAL COLLEGE') || clean.includes('CMC')) return 'CHRISTIAN MEDICAL COLLEGE';
 
             return clean;
+        }
+
+        // Reads client name from the row, falling back to the remarks column
+        // when the client column is empty (common in newer sheets).
+        function getRowClientName(row, sheetName) {
+            const fromCol = getFieldValue(row, 'clientName', sheetName) ||
+                            row['clientName'] || row['clientDepartment'] ||
+                            row['ClientName'] || row['ClientDepartment'] || '';
+            if (fromCol) return String(fromCol).trim();
+
+            // Fallback: remarks column often contains client info like "CMC VELLORE - ..."
+            const remarks = String(
+                row['remarks'] || row['Remarks'] || row['REMARKS'] ||
+                getFieldValue(row, 'remarks', sheetName) || ''
+            ).trim().toUpperCase();
+
+            if (remarks.includes('HAEMOTOL') || remarks.includes('HAEMATOL')) return 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY';
+            if (remarks.includes('NEPHROL')) return 'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY';
+            if (remarks.includes('MEDICAL GENET') || remarks.includes('MEDICAL GENTIC')) return 'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENETICS';
+            if (remarks.includes('CMC') || remarks.includes('CHRISTIAN MEDICAL COLLEGE')) return 'CMC';
+            return '';
         }
 
         function validateColumnMappings() {
@@ -1197,7 +1198,7 @@
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
-                    const clientName = getFieldValue(row, 'clientName', sheetName);
+                    const clientName = getRowClientName(row, sheetName);
                     if (clientName) {
                         clients.add(getNormalizedClientName(clientName));
                     }
@@ -1291,7 +1292,7 @@
                 totalSamples += sheet.rows.length;
                 
                 sheet.rows.forEach(row => {
-                    const clientName = getFieldValue(row, 'clientName', sheetName);
+                    const clientName = getRowClientName(row, sheetName);
                     if (clientName) {
                         clients.add(getNormalizedClientName(clientName));
                     }
@@ -1897,7 +1898,7 @@
                 const sheetData = allData[sheetName];
                 sheetData.rows.forEach(row => {
                     // If a client is selected, filter by client; otherwise include all rows
-                    const rowClient = getNormalizedClientName(getFieldValue(row, 'clientName', sheetName));
+                    const rowClient = getNormalizedClientName(getRowClientName(row, sheetName));
                     const clientMatch = !client || rowClient === client;
                     
                     if (clientMatch) {
@@ -1948,7 +1949,7 @@
             const _monthYear = viewType === 'month' ? parseInt(document.getElementById('monthYearSelect').value) : null;
             const _year = viewType === 'year' ? parseInt(document.getElementById('yearSelect').value) : null;
             activeFilterFn = (row, sheetName) => {
-                const rowClient = getNormalizedClientName(getFieldValue(row, 'clientName', sheetName));
+                const rowClient = getNormalizedClientName(getRowClientName(row, sheetName));
                 if (_client && rowClient !== _client) return false;
                 if (_viewType === 'total') return true;
                 let d = parseDate(getFieldValue(row, 'receivedDate', sheetName));
