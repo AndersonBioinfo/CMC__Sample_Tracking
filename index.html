@@ -1055,7 +1055,7 @@
                 if (key === '_sourceSheet') continue;
                 const val = String(row[key] || '').trim().toLowerCase();
                 
-                if (val.includes('released') || val === 'released' || val.includes('release')) {
+                if (val.includes('released') || val.includes('release') || val.includes('complete')) {
                     foundKeyword = 'Released';
                     foundInColumn = key;
                     break;
@@ -1075,15 +1075,10 @@
 
             if (foundKeyword) return foundKeyword;
 
-            if (foundKeyword) return foundKeyword;
-
-            // --- DATA INSPECTOR ---
-            // Show the first few characters of each cell to see what is actually there
-            const rawValues = Object.values(row)
-                .filter(v => typeof v !== 'object')
-                .map(v => String(v).substring(0, 5))
-                .join('|');
-            return `No Match: ${rawValues.substring(0, 40)}`;
+            // --- END-OF-ROW INSPECTOR ---
+            const vals = Object.values(row).filter(v => typeof v !== 'object');
+            const lastFive = vals.slice(-5).map(v => String(v).substring(0, 10)).join('|');
+            return `End Cols: ${lastFive}`;
 
             // 2. Secondary Logic: Check the mapped "Status" column specifically
             for (const key of Object.keys(row)) {
