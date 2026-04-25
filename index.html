@@ -1090,6 +1090,13 @@
             const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
             const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
 
+            // FINAL SAFETY: If we are here and still don't have a status, 
+            // check if "Report Released Date" exists and is filled.
+            const releasedDate = row.reportReleasedDate; // Check the JSON key directly
+            if (releasedDate && releasedDate !== '' && releasedDate !== '-') {
+                return 'Released';
+            }
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
