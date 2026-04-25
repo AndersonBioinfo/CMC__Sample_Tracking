@@ -922,33 +922,40 @@
 
         function getNormalizedClientName(name) {
             if (!name) return "";
-            
-            // 1. Convert to Uppercase and trim
+
             let clean = String(name).trim().toUpperCase();
-            
-            // 2. Remove any text in parentheses e.g. "HAEMOTOLOGY(Research)" -> "HAEMOTOLOGY"
+
+            // Remove text in parentheses e.g. "HAEMOTOLOGY(Research)" -> "HAEMOTOLOGY"
             clean = clean.replace(/\s*\(.*?\)\s*/g, ' ').trim();
 
-            // 3. Normalize "DR." prefix variants: collapse "DR. " / "DR." / "DR " -> "DR "
-            //    so "DR. SHAJI" and "DR.SHAJI" both become "DR SHAJI"
+            // Normalize "DR." variants
             clean = clean.replace(/\bDR\.?\s*/g, 'DR ').trim();
-            // Collapse any resulting double spaces
             clean = clean.replace(/\s{2,}/g, ' ');
 
-            // 4. Map known aliases
-            if (clean === 'CMC' || clean === 'CHRISTIAN MEDICAL COLLEGE') {
-                return 'CHRISTIAN MEDICAL COLLEGE';
-            }
-
-            // 5. Medical Genetics aliases:
-            //    "CMC MEDICAL GENETICS", "CMC-MEDICAL GENETICS", "MEDICAL GENETICS" -> same canonical
-            if (clean.includes('MEDICAL GENETICS') || clean.includes('MEDICALGENETICS')) {
-                return 'MEDICAL GENETICS';
-            }
-            
-            // 6. Handle common variations for Haemotology/Haematology/Heamotology
+            // --- CMC sub-departments (check BEFORE generic CMC catch-all) ---
             if (clean.includes('HAEMOTOL') || clean.includes('HAEMATOL') || clean.includes('HEAMOTOL')) {
                 return 'HAEMOTOLOGY';
+            }
+            // Handle "MEDICAL GENTICS" typo and "MEDICAL GENETICS" correct spelling
+            if (clean.includes('MEDICAL GENET') || clean.includes('MEDICAL GENTIC') ||
+                clean.includes('MEDICALGENETICS') || clean.includes('MEDICALGENTIC')) {
+                return 'MEDICAL GENETICS';
+            }
+            if (clean.includes('NEPHROL')) {
+                return 'NEPHROLOGY';
+            }
+            if (clean.includes('CYTOGENET')) {
+                return 'CYTOGENETICS';
+            }
+            if (clean.includes('MOLECULAR ENDOCRIN') || clean.includes('MOLECULARENDOCRIN')) {
+                return 'MOLECULAR ENDOCRINOLOGY';
+            }
+
+            // --- Generic CMC / CHRISTIAN MEDICAL COLLEGE catch-all ---
+            // Handles: "CHRISTIAN MEDICAL COLLEGE - VELLORE", "CMC VELLORE WES billed on...",
+            // "CMC", "cmc vellore", "NOT BILLED CMC VELLORE", "MR.XYZ - CMC", etc.
+            if (clean.includes('CHRISTIAN MEDICAL COLLEGE') || clean.includes('CMC')) {
+                return 'CHRISTIAN MEDICAL COLLEGE';
             }
 
             return clean;
