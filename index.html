@@ -1057,11 +1057,22 @@
             if (!rawStatus || !rawStatus.includes('release')) {
                 for (const key of Object.keys(row)) {
                     if (key === '_sourceSheet' || key === 'status') continue;
+                    
                     const val = String(row[key] || '').trim().toLowerCase();
+                    const isFilled = val && val !== '0' && val !== '-' && val.toLowerCase() !== 'n/a';
+                    
+                    // If the cell text says "released"
                     if (val.includes('released') || val.includes('release') || val.includes('complete')) {
                         rawStatus = 'released';
                         break;
                     }
+                    
+                    // NEW: If the COLUMN NAME says "release" and the cell is NOT empty
+                    if (isFilled && (key.toLowerCase().includes('release') || key.toLowerCase().includes('dispatch'))) {
+                        rawStatus = 'released';
+                        break;
+                    }
+                    
                     if (val.includes('ongoing') || val.includes('process')) {
                         if (!rawStatus) rawStatus = 'ongoing';
                     }
