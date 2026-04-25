@@ -1058,51 +1058,19 @@
 
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
-            const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            const matchStatus = (val) => {
-                const v = String(val || '').trim().toLowerCase();
-                if (!v || v === '-') return null;
+            // Read Status column value — try every possible key form
+            const statusVal =
+                row['Status'] ??
+                row['status'] ??
+                row['STATUS'] ??
+                getFieldValue(row, 'status', targetSheet);
+
+            if (statusVal !== null && statusVal !== undefined) {
+                const v = String(statusVal).trim().toLowerCase();
                 if (v.includes('release') || v.includes('complete')) return 'Released';
                 if (v.includes('pending') || v.includes('overdue')) return 'Overdue';
                 if (v.includes('ongoing') || v.includes('progress')) return 'Ongoing';
-                return null;
-            };
-
-            // PASS 1: Any column whose normalized name contains "status"
-            for (const key of Object.keys(row)) {
-                if (key === '_sourceSheet') continue;
-                if (norm(key).includes('status')) {
-                    const result = matchStatus(row[key]);
-                    if (result) return result;
-                }
-            }
-
-            // PASS 2: Column mapping system fallback
-            const mappedVal = getFieldValue(row, 'status', targetSheet);
-            if (mappedVal) {
-                const result = matchStatus(mappedVal);
-                if (result) return result;
-            }
-
-            // PASS 3: Exact match of known dropdown values in ANY column
-            // Safe because "Released"/"ongoing"/"pending" are dropdown-only values
-            for (const key of Object.keys(row)) {
-                if (key === '_sourceSheet') continue;
-                const v = String(row[key] || '').trim().toLowerCase();
-                if (v === 'released') return 'Released';
-                if (v === 'ongoing') return 'Ongoing';
-                if (v === 'pending') return 'Overdue';
-            }
-
-            // PASS 4: Report Released Date column filled → Released
-            for (const key of Object.keys(row)) {
-                if (key === '_sourceSheet') continue;
-                const k = norm(key);
-                if (k.includes('release') && k.includes('date')) {
-                    const val = String(row[key] || '').trim();
-                    if (val && val !== '-' && val !== '0') return 'Released';
-                }
             }
 
             return 'Ongoing';
