@@ -1045,28 +1045,37 @@
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
             
-            // --- APPS SCRIPT VERIFICATION ---
-            const hasStatusKey = row.hasOwnProperty('status');
-            if (!hasStatusKey) {
-                // If the key doesn't even exist in the JSON, the Apps Script isn't sending it.
-                return '<span style="color:red;font-weight:bold;">⚠️ UPDATE APPS SCRIPT</span>';
-            }
+            // --- UNIVERSAL STATUS DETECTION ---
+            let rawStatus = '';
 
-            // 1. Primary Logic: Check the mapped "Status" column
-            let rawStatus = String(row.status || '').trim().toLowerCase();
+            // 1. Try the mapped 'status' column (if Apps Script is updated)
+            if (row.hasOwnProperty('status') && row.status) {
+                rawStatus = String(row.status).trim().toLowerCase();
+            } 
             
-            if (rawStatus.includes('release')) return 'Released';
+            // 2. NUCLEAR FALLBACK: Scan ALL columns for keywords (Works even with old Apps Script)
+            if (!rawStatus || !rawStatus.includes('release')) {
+                for (const key of Object.keys(row)) {
+                    if (key === '_sourceSheet' || key === 'status') continue;
+                    const val = String(row[key] || '').trim().toLowerCase();
+                    if (val.includes('released') || val.includes('release') || val.includes('complete')) {
+                        rawStatus = 'released';
+                        break;
+                    }
+                    if (val.includes('ongoing') || val.includes('process')) {
+                        if (!rawStatus) rawStatus = 'ongoing';
+                    }
+                    if (val.includes('pending')) {
+                        if (!rawStatus) rawStatus = 'pending';
+                    }
+                }
+            }
+            
+            if (rawStatus.includes('release') || rawStatus.includes('complete')) return 'Released';
             if (rawStatus.includes('ongoing')) return 'Ongoing';
             if (rawStatus.includes('pending')) return 'Overdue';
 
-            // 2. Fallback: Scan ALL columns (in case it's named differently in the JSON)
-            for (const key of Object.keys(row)) {
-                if (key === '_sourceSheet' || key === 'status') continue;
-                const val = String(row[key] || '').trim().toLowerCase();
-                if (val.includes('released') || val.includes('release')) return 'Released';
-            }
-
-            // 3. Fallback: Date-based logic
+            // 3. Date-based fallback logic (if no status found anywhere)
             const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
             const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
 
