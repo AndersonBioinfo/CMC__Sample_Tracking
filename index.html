@@ -1620,7 +1620,18 @@
                 
                 cols.forEach(col => {
                     const value = col.getValue(row);
-                    html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                    if (col.title === 'Status') {
+                        const statusClass = getTATClass(calculateStatus(row, row._sourceSheet));
+                        const rowJson = JSON.stringify(row).replace(/'/g, "&#39;");
+                        html += `<td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span class="status-pill ${statusClass}">${value}</span>
+                                <span style="cursor:pointer; font-size:14px;" onclick='alert("RAW DATA:\\n" + JSON.stringify(${rowJson}, null, 2))' title="Debug Data">🔍</span>
+                            </div>
+                        </td>`;
+                    } else {
+                        html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                    }
                 });
                 
                 html += '</tr>';
