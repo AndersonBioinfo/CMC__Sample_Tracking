@@ -1055,17 +1055,16 @@
                 if (key === '_sourceSheet') continue;
                 const val = String(row[key] || '').trim().toLowerCase();
                 
-                if (val.includes('released') || val.includes('release') || val.includes('complete')) {
+                if (val.includes('released') || val.includes('release') || val.includes('complete') || val.includes('sent') || val.includes('dispatch')) {
                     foundKeyword = 'Released';
                     foundInColumn = key;
                     break;
                 }
-                if (val === 'ongoing' || val.includes('ongoing')) {
+                if (val === 'ongoing' || val.includes('ongoing') || val.includes('process')) {
                     foundKeyword = 'Ongoing';
                     foundInColumn = key;
                 }
                 if (val === 'pending' || val.includes('pending')) {
-                    // Only set pending if we haven't found a better status yet
                     if (!foundKeyword) {
                         foundKeyword = 'Overdue';
                         foundInColumn = key;
@@ -1076,9 +1075,10 @@
             if (foundKeyword) return foundKeyword;
 
             // --- END-OF-ROW INSPECTOR ---
-            const vals = Object.values(row).filter(v => typeof v !== 'object');
-            const lastFive = vals.slice(-5).map(v => String(v).substring(0, 10)).join('|');
-            return `End Cols: ${lastFive}`;
+            const keys = Object.keys(row).filter(k => k !== '_sourceSheet');
+            const vals = keys.map(k => row[k]);
+            const lastFive = vals.slice(-5).map((v, i) => `[${keys.length - 4 + i}]:${String(v).substring(0, 8)}`).join(' | ');
+            return `EMPTY (Total Cols: ${keys.length}) | Last 5: ${lastFive}`;
 
             // 2. Secondary Logic: Check the mapped "Status" column specifically
             for (const key of Object.keys(row)) {
