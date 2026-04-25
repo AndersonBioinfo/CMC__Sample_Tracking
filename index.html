@@ -1045,6 +1045,14 @@
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
 
+            // 1. Primary Logic: Check the "Status" column from the Google Sheet (User Requested)
+            const rawStatus = String(getFieldValue(row, 'status', targetSheet) || '').trim().toLowerCase();
+            
+            if (rawStatus === 'released') return 'Released';
+            if (rawStatus === 'ongoing') return 'Ongoing';
+            if (rawStatus === 'pending') return 'Overdue';
+
+            // 2. Fallback Logic: (Existing logic for sheets without a clear status column)
             // Helper: is a cell value "filled" (non-empty, non-placeholder, non-zero)?
             const isFilled = (v) => {
                 const s = String(v == null ? '' : v).trim();
@@ -1052,9 +1060,7 @@
                 return true;
             };
 
-            // 1. Check for Released Status — ALWAYS scan ALL keys directly (no mapping dependency).
-            //    This is the most reliable approach: if ANY column whose name suggests
-            //    "released" or "raw data sent" has a non-empty value, mark as Released.
+            // Check for Released Status via date columns as fallback
             let isReleasedDateFilled = false;
             let isRawDataSentFilled = false;
 
@@ -1064,7 +1070,6 @@
                 const val = row[key];
                 if (!isFilled(val)) continue;
 
-                // Report released / dispatched / issued date columns
                 if (!isReleasedDateFilled && (
                     norm.includes('released') ||
                     norm.includes('releasedate') ||
@@ -1073,14 +1078,13 @@
                     isReleasedDateFilled = true;
                 }
 
-                // Raw data sent columns (any variant, including "Raw Data Sent To")
                 if (!isRawDataSentFilled &&
                     norm.includes('rawdatasent') && !norm.includes('link')
                 ) {
                     isRawDataSentFilled = true;
                 }
 
-                if (isReleasedDateFilled && isRawDataSentFilled) break;
+                if (isReleasedDateFilled || isRawDataSentFilled) break;
             }
 
             if (isReleasedDateFilled || isRawDataSentFilled) {
