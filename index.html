@@ -1631,7 +1631,7 @@
                     const value = col.getValue(row);
                     if (col.title === 'Status') {
                         const statusClass = getTATClass(calculateStatus(row, row._sourceSheet));
-                        html += `<td><span class="status-pill ${statusClass}">${value}</span></td>`;
+                        html += `<td>${value}</td>`;
                     } else {
                         html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
