@@ -386,6 +386,11 @@
             background: rgba(0, 0, 0, 0.04);
         }
 
+        .col-history {
+            min-width: 500px;
+            max-width: 600px;
+        }
+
         .error {
             background: #e74c3c;
             color: white;
@@ -1659,22 +1664,23 @@
             html += '<div class="table-container"><table><thead><tr>';
             
             cols.forEach((col, index) => {
-                html += `<th class="sortable" onclick="sortTable(${index})">${col.title}</th>`;
+                const thClass = col.title === 'History' ? 'sortable col-history' : 'sortable';
+                html += `<th class="${thClass}" onclick="sortTable(${index})">${col.title}</th>`;
             });
-            
+
             html += '</tr></thead><tbody id="tableBody">';
-            
+
             rows.forEach(row => {
                 const rowClass = getTATClass(row);
                 html += `<tr class="${rowClass}">`;
-                
+
                 cols.forEach(col => {
                     const value = col.getValue(row);
+                    const tdClass = col.title === 'History' ? ' class="col-history"' : '';
                     if (col.title === 'Status') {
-                        const statusClass = getTATClass(calculateStatus(row, row._sourceSheet));
                         html += `<td>${value}</td>`;
                     } else {
-                        html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                        html += `<td${tdClass}>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
                 });
                 
