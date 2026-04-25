@@ -1057,73 +1057,34 @@
         }
 
         function calculateStatus(row, sheetName = null) {
-            const targetSheet = sheetName || row._sourceSheet || currentSheet;
-            const kn = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+            const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            // STEP 1: Direct scan for Status column (case-insensitive key match).
-            // Does NOT rely on column mapping — reads whatever key normalises to "status".
-            let pendingFromStatus = false;
+            // 1. Read directly from the Status column (case-insensitive key lookup)
             for (const key of Object.keys(row)) {
                 if (key === '_sourceSheet') continue;
-                const k = kn(key);
-                if (k === 'status' || k === 'reportstatus' || k === 'samplestatus' || k === 'processstatus') {
+                if (norm(key) === 'status') {
                     const val = String(row[key] || '').trim().toLowerCase();
-                    if (!val || val === '-' || val === '0') break;
                     if (val.includes('release') || val.includes('complete')) return 'Released';
-                    if (val.includes('ongoing') || val.includes('in progress')) return 'Ongoing';
-                    if (val.includes('pending')) pendingFromStatus = true;
-                    break; // Status column found — stop scanning
+                    if (val.includes('pending') || val.includes('overdue')) return 'Overdue';
+                    if (val.includes('ongoing') || val.includes('progress')) return 'Ongoing';
+                    // Empty or unrecognised value — fall through to next check
+                    break;
                 }
             }
 
-            // STEP 2: Check any column whose NAME contains "released" or "dispatch" for a filled date.
-            // "Report  released date", "Dispatched Date", etc.
+            // 2. Status column empty or absent — check if Report Released Date is filled
             for (const key of Object.keys(row)) {
                 if (key === '_sourceSheet') continue;
-                const k = kn(key);
-                if (k.includes('released') || k.includes('dispatch')) {
+                const k = norm(key);
+                if (k === 'reportreleaseddate' || k === 'releaseddate' || k === 'releasedate') {
                     const val = String(row[key] || '').trim();
-                    if (val && val !== '-' && val !== '0' && val.toLowerCase() !== 'n/a') {
-                        return 'Released';
-                    }
+                    if (val && val !== '-' && val !== '0') return 'Released';
+                    break;
                 }
             }
 
-            // If Status column explicitly said "pending" and no release date found → Overdue
-            if (pendingFromStatus) return 'Overdue';
-
-            // STEP 3: Date-based fallback using TAT columns (for sheets without Status column)
-            const tatReportText = getFieldValue(row, 'tatReport', targetSheet);
-            const tatRawDataText = getFieldValue(row, 'tatRawData', targetSheet);
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const tatReportDate = parseDate(tatReportText);
-            const tatRawDataDate = parseDate(tatRawDataText);
-
-            const isTatReportCrossed = tatReportDate && tatReportDate < today;
-            const isTatRawDataCrossed = tatRawDataDate && tatRawDataDate < today;
-            const hasRawDataCol = !!(columnMappings[targetSheet] && columnMappings[targetSheet].tatRawData);
-
-            // Fetus samples need both TAT dates crossed to be Overdue
-            let isFetus = false;
-            for (const key of Object.keys(row)) {
-                if (key === '_sourceSheet') continue;
-                if (['FETUS', 'FETAL'].some(kw => String(row[key] || '').toUpperCase().includes(kw))) {
-                    isFetus = true; break;
-                }
-            }
-
-            if (isFetus) {
-                return isTatReportCrossed ? 'Overdue' : 'Ongoing';
-            } else {
-                if (hasRawDataCol) {
-                    return (isTatReportCrossed && isTatRawDataCrossed) ? 'Overdue' : 'Ongoing';
-                } else {
-                    return isTatReportCrossed ? 'Overdue' : 'Ongoing';
-                }
-            }
+            // 3. Default — no status info found
+            return 'Ongoing';
         }
 
         function isReportReleased(row, sheetName = null) {
