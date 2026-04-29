@@ -1148,7 +1148,7 @@
                     html += '</tr></thead><tbody>';
                     
                     // Snippet Rows
-                    sheetData.rows.slice(0, 3).forEach(row => {
+                    (sheetData.rows || []).slice(0, 3).forEach(row => {
                         html += '<tr>';
                         snippetHeaders.forEach(h => {
                             const val = row[h] !== undefined ? row[h] : '';
@@ -1181,7 +1181,7 @@
             const clients = new Set();
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                sheetData.rows.forEach(row => {
+                (sheetData.rows || []).forEach(row => {
                     const clientName = getRowClientName(row, sheetName);
                     if (clientName) {
                         clients.add(getNormalizedClientName(clientName));
@@ -1211,7 +1211,7 @@
 
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                sheetData.rows.forEach(row => {
+                (sheetData.rows || []).forEach(row => {
                     // Collect dates from TAT, Released, and Received for comprehensive filtering
                     const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
                     const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
@@ -1273,9 +1273,9 @@
             Object.keys(allData).forEach(sheetName => {
                 const sheet = allData[sheetName];
                 const mapping = columnMappings[sheetName];
-                totalSamples += sheet.rows.length;
+                totalSamples += (sheet.rows || []).length;
                 
-                sheet.rows.forEach(row => {
+                (sheet.rows || []).forEach(row => {
                     const clientName = getRowClientName(row, sheetName);
                     if (clientName) {
                         clients.add(getNormalizedClientName(clientName));
@@ -1404,7 +1404,7 @@
             if (!activeFilterFn) { showAllSheets(); return; }
             const filteredData = [];
             Object.keys(allData).forEach(sheetName => {
-                allData[sheetName].rows.forEach(row => {
+                (allData[sheetName].rows || []).forEach(row => {
                     const rowWithSource = { ...row, _sourceSheet: sheetName };
                     if (activeFilterFn(rowWithSource, sheetName)) filteredData.push(rowWithSource);
                 });
@@ -1880,7 +1880,7 @@
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                sheetData.rows.forEach(row => {
+                (sheetData.rows || []).forEach(row => {
                     // If a client is selected, filter by client; otherwise include all rows
                     const rowClient = getNormalizedClientName(getRowClientName(row, sheetName));
                     const clientMatch = !client || rowClient === client;
@@ -1957,7 +1957,7 @@
             
             Object.keys(allData).forEach(sheetName => {
                 const sheetData = allData[sheetName];
-                sheetData.rows.forEach(row => {
+                (sheetData.rows || []).forEach(row => {
                     const rowWithSource = { ...row, _sourceSheet: sheetName };
                     const status = calculateStatus(rowWithSource, sheetName);
                     
