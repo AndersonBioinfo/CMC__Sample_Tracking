@@ -47,7 +47,10 @@ function getAllData() {
     const processed = processSheet(data, name);
     
     if (processed.rows.length > 0) {
-      result.sheets[name] = processed.rows;
+      result.sheets[name] = {
+        headers: processed.headers,
+        rows: processed.rows
+      };
       result.metadata.totalSheets++;
       result.metadata.totalSamples += processed.rows.length;
     }
@@ -134,7 +137,8 @@ function sendTATDeadlineEmails() {
   const rawDataAlerts = [];
   
   for (const sheetName in allData.sheets) {
-    const rows = allData.sheets[sheetName];
+    const sheetData = allData.sheets[sheetName];
+    const rows = sheetData.rows;
     
     rows.forEach(row => {
       // 1. Determine if the sample is already released
