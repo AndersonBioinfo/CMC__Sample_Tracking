@@ -27,6 +27,14 @@
             overflow-y: auto;
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
+        .back-to-home {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+            background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.3);
+            color: rgba(255,255,255,.9); text-decoration: none;
+            transition: all .2s ease;
+        }
+        .back-to-home:hover { background: #3498db; border-color: #3498db; color: #fff; transform: translateX(-2px); }
 
         .sidebar h2 {
             margin-bottom: 20px;
@@ -586,7 +594,12 @@
 </head>
 <body>
     <div class="sidebar">
-        <h2>📊 Lab Sample Tracker</h2>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;border-bottom:2px solid #3498db;padding-bottom:10px;">
+            <a href="https://tera-report-automation.onrender.com/?section=trackers" class="back-to-home" title="Back to Inhouse Tools">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </a>
+            <h2 style="margin-bottom:0;border-bottom:none;padding-bottom:0;">📊 Lab Sample Tracker</h2>
+        </div>
         
         <div class="menu-item" onclick="showAllSheets()">
             <span>🏠</span> View All Sheets
