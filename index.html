@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Sample Tracker</title>
+    <title>CMC Sample Management System</title>
     <style>
         * {
             margin: 0;
@@ -20,7 +20,7 @@
         }
 
         .sidebar {
-            width: 300px;
+            width: 180px;
             background: #2c3e50;
             color: white;
             padding: 20px;
@@ -655,15 +655,10 @@
 </head>
 <body>
     <div class="sidebar">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;border-bottom:2px solid #3498db;padding-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #3498db;">
             <a href="https://tera-report-automation.onrender.com/?section=trackers&amp;team=bioinfo" onclick="event.preventDefault();history.back()" class="back-to-home" title="Back to Bioinfo Team">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </a>
-            <h2 style="margin-bottom:0;border-bottom:none;padding-bottom:0;">📊 Lab Sample Tracker</h2>
-        </div>
-        
-        <div class="menu-item" onclick="showAllSheets()">
-            <span>🏠</span> View All Sheets
         </div>
 
 
@@ -687,7 +682,7 @@
 
     <div class="main-content">
         <div class="header">
-            <h1>Lab Sample Management System</h1>
+            <h1>CMC Sample Management System</h1>
             <div class="header-controls">
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search in current view..." onkeyup="searchTable()">
                 <button class="config-btn" onclick="showConfigModal()">⚙️ Column Mapping</button>
