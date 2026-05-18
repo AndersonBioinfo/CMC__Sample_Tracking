@@ -205,51 +205,51 @@
 
         .header {
             background: white;
-            padding: 20px 30px;
+            padding: 12px 24px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        .header h1 {
-            color: #2c3e50;
-            font-size: 24px;
+        .header-title-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 8px;
         }
 
-        .header-controls {
-            margin-top: 10px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
+        .header-title-row h1 {
+            color: #2c3e50;
+            font-size: 20px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .search-box {
             flex: 1;
-            padding: 10px 15px;
+            padding: 8px 14px;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 14px;
         }
 
-        .refresh-btn, .config-btn {
-            padding: 10px 20px;
-            background: #3498db;
-            color: white;
+        .sidebar-btn {
+            display: block;
+            width: 100%;
+            padding: 9px 10px;
+            margin-bottom: 8px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-weight: 500;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s;
+            color: white;
         }
 
-        .refresh-btn:hover, .config-btn:hover {
-            background: #2980b9;
-        }
-
-        .config-btn {
-            background: #9b59b6;
-        }
-
-        .config-btn:hover {
-            background: #8e44ad;
-        }
+        .sidebar-btn-config { background: #9b59b6; }
+        .sidebar-btn-config:hover { background: #8e44ad; }
+        .sidebar-btn-refresh { background: #3498db; }
+        .sidebar-btn-refresh:hover { background: #2980b9; }
 
         .tabs {
             display: flex;
@@ -310,38 +310,46 @@
         .result-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 8px 16px;
+            margin-bottom: 10px;
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .result-header h3 {
-            margin-bottom: 10px;
-            font-size: 20px;
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            flex: 1;
+            min-width: 150px;
         }
 
         .result-stats {
             display: flex;
-            gap: 30px;
-            margin-top: 15px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
         .stat-item {
             background: rgba(255, 255, 255, 0.2);
-            padding: 10px 20px;
+            padding: 4px 12px;
             border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .stat-label {
-            font-size: 12px;
-            opacity: 0.9;
-            margin-bottom: 5px;
+            font-size: 11px;
+            opacity: 0.85;
         }
 
         .stat-value {
-            font-size: 24px;
+            font-size: 16px;
             font-weight: bold;
         }
 
@@ -662,6 +670,9 @@
         </div>
 
 
+        <button class="sidebar-btn sidebar-btn-config" onclick="showConfigModal()">⚙️ Column Mapping</button>
+        <button class="sidebar-btn sidebar-btn-refresh" onclick="loadAllData(true)">🔄 Refresh Data</button>
+
         <div id="dataInfo" class="available-data-info" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <h4 style="margin: 0;">📅 Data Status</h4>
@@ -682,11 +693,9 @@
 
     <div class="main-content">
         <div class="header">
-            <h1>CMC Sample Management System</h1>
-            <div class="header-controls">
+            <div class="header-title-row">
+                <h1>CMC Sample Management System</h1>
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search in current view..." onkeyup="searchTable()">
-                <button class="config-btn" onclick="showConfigModal()">⚙️ Column Mapping</button>
-                <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh Data</button>
             </div>
             <div class="filter-bar">
                 <div class="filter-bar-group">
@@ -776,34 +785,42 @@
             `;
         }
 
-        async function loadAllData() {
+        const CACHE_KEY = 'cmc_tracker_data';
+        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+        async function loadAllData(forceRefresh = false) {
             try {
-                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data from Google Sheets...</div>';
-                
-                // Add timestamp to prevent browser from aggressively caching the JSON response
-                const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${new Date().getTime()}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
+                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data</div>';
+
+                let data = null;
+
+                if (!forceRefresh) {
+                    try {
+                        const cached = sessionStorage.getItem(CACHE_KEY);
+                        if (cached) {
+                            const parsed = JSON.parse(cached);
+                            if (Date.now() - parsed.ts < CACHE_TTL) data = parsed.data;
+                        }
+                    } catch (e) {}
                 }
-                
+
+                if (!data) {
+                    const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${Date.now()}`;
+                    const response = await fetch(url);
+                    data = await response.json();
+                    if (data.error) throw new Error(data.error);
+                    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch (e) {}
+                }
+
                 allData = data.sheets;
                 metadata = data.metadata;
-                
-                // Auto-detect column mappings from the first sheet
+
                 detectColumnMappings();
-                
-                populateClientDropdown();
-                populateMonthYearDropdowns();
+                initFiltersAndInfo();
                 renderSheetTabs();
-                updateDataInfo();
                 showAllSheets();
-                
-                // Show warning if column detection has issues
-                validateColumnMappings();
-                
+                setTimeout(() => validateColumnMappings(), 200);
+
             } catch (error) {
                 document.getElementById('contentArea').innerHTML = `
                     <div class="error">
@@ -1165,146 +1182,54 @@
             document.getElementById('configModal').classList.remove('active');
         }
 
-        function populateClientDropdown() {
-            const select = document.getElementById('clientSelect');
-            select.innerHTML = '<option value="">All Clients</option>';
-            
-            // Extract unique clients from all sheets with normalization
-            const clients = new Set();
-            Object.keys(allData).forEach(sheetName => {
-                const sheetData = allData[sheetName];
-                (sheetData.rows || []).forEach(row => {
-                    const clientName = getRowClientName(row, sheetName);
-                    if (clientName) {
-                        clients.add(getNormalizedClientName(clientName));
-                    }
-                });
-            });
-
-            const sortedClients = Array.from(clients).sort();
-            if (sortedClients.length === 0) {
-                select.innerHTML = '<option value="">-- No Client Column Detected --</option>';
-            } else {
-                sortedClients.forEach(client => {
-                    const option = document.createElement('option');
-                    option.value = client;
-                    option.textContent = client;
-                    select.appendChild(option);
-                });
-            }
-        }
-
-        function populateMonthYearDropdowns() {
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                               'July', 'August', 'September', 'October', 'November', 'December'];
-            
-            const months = new Set();
-            const years = new Set();
-
-            Object.keys(allData).forEach(sheetName => {
-                const sheetData = allData[sheetName];
-                (sheetData.rows || []).forEach(row => {
-                    // Collect dates from TAT, Released, and Received for comprehensive filtering
-                    const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-                    const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
-                    const recDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
-                    
-                    if (tatDate) {
-                        months.add(tatDate.getMonth() + 1);
-                        years.add(tatDate.getFullYear());
-                    }
-                    if (relDate) {
-                        months.add(relDate.getMonth() + 1);
-                        years.add(relDate.getFullYear());
-                    }
-                    if (recDate) {
-                        months.add(recDate.getMonth() + 1);
-                        years.add(recDate.getFullYear());
-                    }
-                });
-            });
-
-            // Populate all date dropdowns across all sections
-            const sortedMonths = Array.from(months).sort((a, b) => a - b);
-            const sortedYears = Array.from(years).sort((a, b) => b - a);
-
-            ['monthSelect', 'tatMonthSelect'].forEach(id => {
-                const select = document.getElementById(id);
-                if (!select) return;
-                select.innerHTML = '';
-                sortedMonths.forEach(m => {
-                    const option = document.createElement('option');
-                    option.value = m;
-                    option.textContent = monthNames[m - 1];
-                    select.appendChild(option);
-                });
-            });
-
-            ['monthYearSelect', 'yearSelect', 'tatMonthYearSelect', 'tatYearSelect'].forEach(id => {
-                const select = document.getElementById(id);
-                if (!select) return;
-                select.innerHTML = '';
-                sortedYears.forEach(y => {
-                    const option = document.createElement('option');
-                    option.value = y;
-                    option.textContent = y;
-                    select.appendChild(option);
-                });
-            });
-
-            const topYear = document.getElementById('topYearSelect');
-            if (topYear) {
-                topYear.innerHTML = '<option value="">All Years</option>';
-                sortedYears.forEach(y => {
-                    const option = document.createElement('option');
-                    option.value = y;
-                    option.textContent = y;
-                    topYear.appendChild(option);
-                });
-            }
-        }
-
-        function updateDataInfo() {
-            document.getElementById('dataInfo').style.display = 'block';
-            document.getElementById('infoSheets').textContent = Object.keys(allData).length;
-            
+        function initFiltersAndInfo() {
             const clients = new Set();
             let totalSamples = 0;
             let totalColumnsMapped = 0;
             const requiredFields = ['clientName', 'tatReport'];
-            
+
+            // Single pass over all rows — collect clients + sample count
             Object.keys(allData).forEach(sheetName => {
                 const sheet = allData[sheetName];
                 const mapping = columnMappings[sheetName];
                 totalSamples += (sheet.rows || []).length;
-                
+                requiredFields.forEach(f => { if (mapping && mapping[f]) totalColumnsMapped++; });
                 (sheet.rows || []).forEach(row => {
-                    const clientName = getRowClientName(row, sheetName);
-                    if (clientName) {
-                        clients.add(getNormalizedClientName(clientName));
-                    }
+                    const c = getRowClientName(row, sheetName);
+                    if (c) clients.add(getNormalizedClientName(c));
                 });
-
-                requiredFields.forEach(f => { if (mapping[f]) totalColumnsMapped++; });
             });
-            
-            // Update mapping status badge
-            const badge = document.getElementById('mappingBadge');
-            const mapRatio = totalColumnsMapped / (Object.keys(allData).length * requiredFields.length);
-            
-            if (mapRatio === 1) {
-                badge.textContent = 'Excellent';
-                badge.style.background = '#27ae60';
-            } else if (mapRatio > 0.5) {
-                badge.textContent = 'Partial';
-                badge.style.background = '#f39c12';
-            } else {
-                badge.textContent = 'Check Headers';
-                badge.style.background = '#e74c3c';
+
+            // Client dropdown
+            const select = document.getElementById('clientSelect');
+            if (select) {
+                const sorted = Array.from(clients).sort();
+                select.innerHTML = sorted.length
+                    ? '<option value="">All Clients</option>' + sorted.map(c => `<option value="${c}">${c}</option>`).join('')
+                    : '<option value="">-- No Client Column Detected --</option>';
             }
 
+            // Year dropdown — read from sheet names (O(sheets), no date parsing)
+            const years = new Set();
+            Object.keys(allData).forEach(name => {
+                const d = getSheetDate(name);
+                if (d) years.add(d.getFullYear());
+            });
+            const topYear = document.getElementById('topYearSelect');
+            if (topYear) {
+                topYear.innerHTML = '<option value="">All Years</option>'
+                    + Array.from(years).sort((a, b) => b - a).map(y => `<option value="${y}">${y}</option>`).join('');
+            }
+
+            // Data status panel
+            document.getElementById('dataInfo').style.display = 'block';
+            document.getElementById('infoSheets').textContent = Object.keys(allData).length;
             document.getElementById('infoClients').textContent = clients.size;
             document.getElementById('infoSamples').textContent = totalSamples;
+            const badge = document.getElementById('mappingBadge');
+            const ratio = totalColumnsMapped / (Object.keys(allData).length * requiredFields.length);
+            badge.textContent = ratio === 1 ? 'Excellent' : ratio > 0.5 ? 'Partial' : 'Check Headers';
+            badge.style.background = ratio === 1 ? '#27ae60' : ratio > 0.5 ? '#f39c12' : '#e74c3c';
         }
 
         function getSortedSheetNames() {
