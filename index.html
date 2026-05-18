@@ -135,6 +135,15 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
 
+        .filter-section button.reset-btn {
+            background: #e74c3c;
+            margin-top: 6px;
+        }
+
+        .filter-section button.reset-btn:hover {
+            background: #c0392b;
+        }
+
         .main-content {
             flex: 1;
             display: flex;
@@ -634,6 +643,7 @@
             </div>
 
             <button onclick="applyClientFilter()">📈 Apply Filter</button>
+            <button class="reset-btn" onclick="resetClientFilter()">🔄 Reset Filter</button>
         </div>
 
         <div class="menu-item" onclick="toggleFilter('tat')">
@@ -697,6 +707,7 @@
             <button class="apply-btn" onclick="applyTATFilter()">
                 <span class="icon">📈</span> Apply TAT Filter
             </button>
+            <button class="reset-btn" onclick="resetTATFilter()">🔄 Reset Filter</button>
         </div>
 
         <div id="dataInfo" class="available-data-info" style="display: none;">
@@ -1980,12 +1991,15 @@
                     else if (tatStatus === 'crossed' && status === 'Overdue') statusMatch = true;
 
                     if (statusMatch) {
-                        // For date-range filtering use the most relevant date
+                        // For date-range filtering: month/year always uses received date
                         const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
+                        const recDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                         const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-                        let activeDate = (tatStatus === 'completed') ? relDate : tatDate;
-                        if (!activeDate && (viewType === 'month' || viewType === 'year')) {
-                            activeDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
+                        let activeDate;
+                        if (viewType === 'date' && tatStatus === 'completed') {
+                            activeDate = relDate;
+                        } else {
+                            activeDate = recDate || tatDate;
                         }
                         
                         if (viewType === 'total') {
@@ -2040,10 +2054,10 @@
                 if (!statusMatch) return false;
                 if (_viewType === 'total') return true;
                 const relDate = parseDate(getFieldValue(row, 'reportReleasedDate', sheetName));
+                const recDate = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                 const tatDate = parseDate(getFieldValue(row, 'tatReport', sheetName));
-                let d = (_tatStatus === 'completed') ? relDate : tatDate;
-                if (!d) d = parseDate(getFieldValue(row, 'receivedDate', sheetName));
                 if (_viewType === 'date') return relDate && relDate.toISOString().split('T')[0] === _dateStr;
+                const d = recDate || tatDate;
                 if (_viewType === 'month') return d && d.getMonth() + 1 === _month && d.getFullYear() === _monthYear;
                 if (_viewType === 'year') return d && d.getFullYear() === _year;
                 return true;
@@ -2053,6 +2067,27 @@
             currentView = filteredData;
             renderTable(filteredData, title);
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        }
+
+        function resetClientFilter() {
+            document.getElementById('clientSelect').value = '';
+            document.getElementById('clientViewType').value = 'total';
+            document.getElementById('monthPicker').classList.remove('active');
+            document.getElementById('yearPicker').classList.remove('active');
+            activeFilterFn = null;
+            activeFilterLabel = '';
+            showAllSheets();
+        }
+
+        function resetTATFilter() {
+            document.getElementById('tatStatus').value = 'not_crossed';
+            document.getElementById('tatViewType').value = 'total';
+            document.getElementById('tatDatePicker').classList.remove('active');
+            document.getElementById('tatMonthPicker').classList.remove('active');
+            document.getElementById('tatYearPicker').classList.remove('active');
+            activeFilterFn = null;
+            activeFilterLabel = '';
+            showAllSheets();
         }
 
         // Close modal when clicking outside
