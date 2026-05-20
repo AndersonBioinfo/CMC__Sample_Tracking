@@ -343,6 +343,21 @@
             gap: 6px;
         }
 
+        .stat-item.clickable {
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        .stat-item.clickable:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .stat-item.clickable.active-filter {
+            background: rgba(255, 255, 255, 0.55);
+            outline: 2px solid rgba(255,255,255,0.8);
+        }
+
         .stat-label {
             font-size: 11px;
             opacity: 0.85;
@@ -746,6 +761,7 @@
         let columnMappings = {};
         let activeFilterFn = null;
         let activeFilterLabel = '';
+        let activeTATFilter = null;
 
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
@@ -1309,6 +1325,7 @@
         function showAllSheets() {
             activeFilterFn = null;
             activeFilterLabel = '';
+            activeTATFilter = null;
             document.querySelectorAll('.filter-section').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
 
@@ -1336,23 +1353,31 @@
                 _sourceSheet: sheetName
             }));
 
+            let baseRows = rowsWithSource;
+            let baseTitle = `${sheetName} - All Samples`;
+
             if (activeFilterFn) {
-                const filtered = rowsWithSource.filter(row => activeFilterFn(row, sheetName));
-                currentView = filtered;
-                if (filtered.length === 0) {
-                    document.getElementById('contentArea').innerHTML = `
-                        <div class="no-data">
-                            No matching samples in <strong>${sheetName}</strong><br>
-                            <button onclick="showAllFilteredMonths()" style="margin-top:15px;padding:10px 24px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;">
-                                Show All Months
-                            </button>
-                        </div>`;
-                } else {
-                    renderTable(filtered, `${sheetName} - ${activeFilterLabel}`, sheetData.headers);
-                }
+                baseRows = rowsWithSource.filter(row => activeFilterFn(row, sheetName));
+                baseTitle = `${sheetName} - ${activeFilterLabel}`;
+            }
+
+            if (activeTATFilter) {
+                const tatLabel = activeTATFilter === 'Released' ? 'Completed' : activeTATFilter;
+                baseRows = baseRows.filter(row => calculateStatus(row, row._sourceSheet || sheetName) === activeTATFilter);
+                baseTitle += ` (${tatLabel})`;
+            }
+
+            currentView = baseRows;
+            if (baseRows.length === 0) {
+                document.getElementById('contentArea').innerHTML = `
+                    <div class="no-data">
+                        No matching samples in <strong>${sheetName}</strong><br>
+                        <button onclick="showAllFilteredMonths()" style="margin-top:15px;padding:10px 24px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;">
+                            Show All Months
+                        </button>
+                    </div>`;
             } else {
-                currentView = rowsWithSource;
-                renderTable(rowsWithSource, `${sheetName} - All Samples`, sheetData.headers);
+                renderTable(baseRows, baseTitle, sheetData.headers);
             }
         }
 
@@ -1628,22 +1653,34 @@
                 }
             });
             
+            const cls = (status) => `stat-item clickable${activeTATFilter === status ? ' active-filter' : ''}`;
             let html = `
-                <div class="stat-item">
+                <div class="${cls('Ongoing')}" onclick="filterByTATStatus('Ongoing')" title="Click to filter ongoing samples">
                     <div class="stat-label">⏳ Ongoing</div>
                     <div class="stat-value">${ongoing}</div>
                 </div>
-                <div class="stat-item">
+                <div class="${cls('Overdue')}" onclick="filterByTATStatus('Overdue')" title="Click to filter overdue samples">
                     <div class="stat-label">🚨 Overdue</div>
                     <div class="stat-value">${overdue}</div>
                 </div>
-                <div class="stat-item">
+                <div class="${cls('Released')}" onclick="filterByTATStatus('Released')" title="Click to filter completed samples">
                     <div class="stat-label">✅ Completed</div>
                     <div class="stat-value">${completed}</div>
                 </div>
             `;
-            
+
             return html;
+        }
+
+        function filterByTATStatus(status) {
+            if (activeTATFilter === status) {
+                activeTATFilter = null; // toggle off
+            } else {
+                activeTATFilter = status;
+            }
+            if (currentSheet) {
+                displaySheet(currentSheet);
+            }
         }
 
         function getTATClass(row) {
