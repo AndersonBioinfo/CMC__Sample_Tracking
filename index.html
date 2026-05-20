@@ -1215,8 +1215,8 @@
             let totalColumnsMapped = 0;
             const requiredFields = ['clientName', 'tatReport'];
 
-            // Single pass over all rows — collect clients + sample count
-            Object.keys(allData).forEach(sheetName => {
+            // Single pass over all rows — collect clients + sample count (skip non-Month-Year sheets)
+            Object.keys(allData).filter(n => getSheetDate(n) !== null).forEach(sheetName => {
                 const sheet = allData[sheetName];
                 const mapping = columnMappings[sheetName];
                 totalSamples += (sheet.rows || []).length;
@@ -1260,7 +1260,8 @@
         }
 
         function getSortedSheetNames() {
-            const sheetNames = Object.keys(allData);
+            // Only include sheets that match "Month Year" pattern (e.g. "May 2026")
+            const sheetNames = Object.keys(allData).filter(name => getSheetDate(name) !== null);
             const months = {
                 'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
                 'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
