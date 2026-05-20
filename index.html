@@ -774,6 +774,8 @@
 
         // Initialize
         if (APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
+            // Clear any cache written by older code versions to avoid structure mismatches
+            try { sessionStorage.removeItem('lab_tracker_data'); } catch(e) {}
             loadAllData();
         } else {
             document.getElementById('contentArea').innerHTML = `
@@ -788,47 +790,72 @@
         const CACHE_KEY = 'cmc_tracker_data';
         const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-        async function loadAllData(forceRefresh = false) {
+        function showError(msg) {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="error">
+                    <h3>⚠️ Could Not Load Data</h3>
+                    <p>${msg}</p>
+                    <button onclick="loadAllData(true)" style="margin-top:12px;padding:10px 22px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;font-weight:600;">🔄 Retry</button>
+                </div>`;
+        }
+
+        function readCache() {
             try {
-                document.getElementById('contentArea').innerHTML = '<div class="loading">Loading data</div>';
+                const raw = sessionStorage.getItem(CACHE_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !parsed.data || !parsed.data.sheets) return null;
+                if (Date.now() - parsed.ts >= CACHE_TTL) return null;
+                return parsed.data;
+            } catch (e) { return null; }
+        }
 
-                let data = null;
+        async function loadAllData(forceRefresh = false) {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = '<div class="loading">Loading data from Google Sheets</div>';
 
-                if (!forceRefresh) {
-                    try {
-                        const cached = sessionStorage.getItem(CACHE_KEY);
-                        if (cached) {
-                            const parsed = JSON.parse(cached);
-                            if (Date.now() - parsed.ts < CACHE_TTL) data = parsed.data;
-                        }
-                    } catch (e) {}
-                }
+            try {
+                let data = forceRefresh ? null : readCache();
 
                 if (!data) {
-                    const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${Date.now()}`;
-                    const response = await fetch(url);
-                    data = await response.json();
-                    if (data.error) throw new Error(data.error);
+                    contentArea.innerHTML = '<div class="loading">Fetching from server</div>';
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 45000);
+                    try {
+                        const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${Date.now()}`;
+                        const response = await fetch(url, { signal: controller.signal });
+                        clearTimeout(timeout);
+                        const text = await response.text();
+                        try { data = JSON.parse(text); }
+                        catch (e) { throw new Error('Server returned non-JSON response. Check Apps Script deployment.'); }
+                    } catch (err) {
+                        clearTimeout(timeout);
+                        if (err.name === 'AbortError') throw new Error('Request timed out (45s). The server may be starting — please retry in a moment.');
+                        throw err;
+                    }
+
+                    if (!data || data.error) throw new Error(data ? data.error : 'Empty response from server.');
+                    if (!data.sheets) throw new Error('Response missing sheet data. Check Apps Script.');
                     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch (e) {}
                 }
 
                 allData = data.sheets;
-                metadata = data.metadata;
+                metadata = data.metadata || {};
 
+                if (!allData || Object.keys(allData).length === 0) {
+                    throw new Error('No sheets found in the data. The spreadsheet may be empty.');
+                }
+
+                contentArea.innerHTML = '<div class="loading">Parsing data</div>';
                 detectColumnMappings();
                 initFiltersAndInfo();
                 renderSheetTabs();
                 showAllSheets();
-                setTimeout(() => validateColumnMappings(), 200);
+                setTimeout(() => validateColumnMappings(), 300);
 
             } catch (error) {
-                document.getElementById('contentArea').innerHTML = `
-                    <div class="error">
-                        <h3>Error Loading Data</h3>
-                        <p>${error.message}</p>
-                        <p>Please ensure the Apps Script is deployed correctly and the URL is updated.</p>
-                    </div>
-                `;
+                showError(error.message || 'Unknown error. Open the browser console for details.');
+                console.error('[CMC Tracker] loadAllData error:', error);
             }
         }
 
