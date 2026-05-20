@@ -1361,14 +1361,17 @@
                 baseTitle = `${sheetName} - ${activeFilterLabel}`;
             }
 
+            const statRows = baseRows; // counts always reflect pre-TAT-filter view
+
+            let displayRows = baseRows;
             if (activeTATFilter) {
                 const tatLabel = activeTATFilter === 'Released' ? 'Completed' : activeTATFilter;
-                baseRows = baseRows.filter(row => calculateStatus(row, row._sourceSheet || sheetName) === activeTATFilter);
+                displayRows = baseRows.filter(row => calculateStatus(row, row._sourceSheet || sheetName) === activeTATFilter);
                 baseTitle += ` (${tatLabel})`;
             }
 
-            currentView = baseRows;
-            if (baseRows.length === 0) {
+            currentView = displayRows;
+            if (displayRows.length === 0) {
                 document.getElementById('contentArea').innerHTML = `
                     <div class="no-data">
                         No matching samples in <strong>${sheetName}</strong><br>
@@ -1377,7 +1380,7 @@
                         </button>
                     </div>`;
             } else {
-                renderTable(baseRows, baseTitle, sheetData.headers);
+                renderTable(displayRows, baseTitle, sheetData.headers, statRows);
             }
         }
 
@@ -1399,7 +1402,7 @@
 
         let currentTableCols = []; // Track column definitions for current table to enable correct sorting.
 
-        function renderTable(rows, title = '', headers = null) {
+        function renderTable(rows, title = '', headers = null, statRows = null) {
             if (rows.length === 0) {
                 document.getElementById('contentArea').innerHTML = '<div class="no-data">No samples match your criteria</div>';
                 return;
@@ -1583,9 +1586,9 @@
                     <div class="result-stats">
                         <div class="stat-item">
                             <div class="stat-label">Total Samples</div>
-                            <div class="stat-value">${rows.length}</div>
+                            <div class="stat-value">${(statRows || rows).length}</div>
                         </div>
-                        ${getTATStats(rows)}
+                        ${getTATStats(statRows || rows)}
                     </div>
                 </div>
             `;
