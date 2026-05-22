@@ -1108,14 +1108,13 @@
         function getRowClientName(row, sheetName) {
             const isDocName = v => /^Dr[\.\s]/i.test(String(v).trim());
 
-            // Try every likely column name — prefer "Client Department" over "Client Name"
+            // Apps Script sends the client/dept value under the 'clientName' key
             const colCandidates = [
+                row.clientName,                          // Apps Script camelCase key (primary)
                 getFieldValue(row, 'clientName', sheetName),
-                row['Client Department'], row['client department'], row['CLIENT DEPARTMENT'],
-                row['clientDepartment'], row['ClientDepartment'],
-                row['Client Name'], row['client name'], row['CLIENT NAME'],
-                row['clientName'], row['ClientName'],
-                row['Client'], row['client'], row['CLIENT'],
+                row['Client Department'], row['clientDepartment'],
+                row['Client Name'], row['ClientName'],
+                row['Client'], row['client'],
             ];
             for (const v of colCandidates) {
                 const s = String(v || '').trim();
@@ -1699,72 +1698,22 @@
                         if (v) return clean(v);
                     }
 
-                    // Log the row structure once per sheet so the browser console shows us the keys
-                    if (!window._deptDebugLogged) window._deptDebugLogged = {};
-                    if (!window._deptDebugLogged[sheet]) {
-                        window._deptDebugLogged[sheet] = true;
-                        console.log('[CMC Tracker] Row keys for', sheet, ':', Object.keys(r).filter(k => k !== '_sourceSheet'));
-                        console.log('[CMC Tracker] Full first row:', JSON.stringify(Object.fromEntries(Object.entries(r).filter(([k]) => k !== '_sourceSheet'))));
+                    // Apps Script sends the department as 'clientName' key
+                    // (reads from "Client Name" OR "Client Department" column after the Apps Script fix)
+                    const direct = String(r.clientName || '').trim();
+                    if (direct && !isDocName(direct)) return clean(direct);
+
+                    // Fallback: pre-detected key or keyMap (covers any future column rename)
+                    if (clientDeptKey && r[clientDeptKey]) {
+                        const v = String(r[clientDeptKey]).trim();
+                        if (v && !isDocName(v)) return clean(v);
+                    }
+                    if (keyMap.clientDept && r[keyMap.clientDept]) {
+                        const v = String(r[keyMap.clientDept]).trim();
+                        if (v && !isDocName(v)) return clean(v);
                     }
 
-                    // Step 1: Try exact known header spellings — "Client Department" first, then "Client Name"
-                    const exactKeys = [
-                        'Client Department','client department','CLIENT DEPARTMENT','ClientDepartment','clientDepartment',
-                        'Client Name','client name','CLIENT NAME','ClientName','clientName',
-                        'Client','client','CLIENT',
-                        'Department','department','DEPARTMENT',
-                    ];
-                    for (const k of exactKeys) {
-                        const v = good(r[k]);
-                        if (v && v.length > 3) return clean(v); // skip very short abbreviations like "CMC" in Step 1
-                    }
-
-                    // Step 2: Normalized header scan — prefer 'clientdepartment' over 'clientname'
-                    const clientNorms = ['clientdepartment','clientname','client','department','centername','referral','hospital'];
-                    const rowKeys = Object.keys(r).filter(k => k !== '_sourceSheet');
-                    const sorted = rowKeys.slice().sort((a, b) => {
-                        const ia = clientNorms.indexOf(normalize(a)), ib = clientNorms.indexOf(normalize(b));
-                        if (ia === -1 && ib === -1) return 0;
-                        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-                    });
-                    for (const k of sorted) {
-                        if (clientNorms.includes(normalize(k))) {
-                            const v = good(r[k]);
-                            if (v && v.length > 3) return clean(v);
-                        }
-                    }
-
-                    // Step 3: columnMappings index-based lookup
-                    const mapped = good(getFieldValue(r, 'clientName', sheet));
-                    if (mapped && mapped.length > 3) return clean(mapped);
-
-                    // Step 4: Content scan — find ANY column whose value looks like a dept name
-                    const DEPT_KW = ['CHRISTIAN MEDICAL','HAEMOTOL','HAEMATOL','NEPHROL','CYTOGENET',
-                                     'MEDICAL GENET','MOLECULAR ENDOCRIN','CMC VELLORE','ONCOL'];
-                    const skipNorms = new Set(['remarks','remark','comment','notes',
-                                               'receiveddate','tatreport','reportreleaseddate','rawdatadate',
-                                               'samplename','patientname','samplenumber','sampleid','andid','andersonid',
-                                               'test','testname','status','clientdoctorname']);
-                    for (const k of rowKeys) {
-                        if (skipNorms.has(normalize(k))) continue;
-                        const v = String(r[k]||'').trim();
-                        if (v.length < 3 || v.length > 120 || hasDate(v) || isDocName(v)) continue;
-                        if (DEPT_KW.some(kw => v.toUpperCase().includes(kw))) return clean(v);
-                    }
-
-                    // Step 5: Short-form fallback (accept "CMC" etc. only as last resort)
-                    for (const k of exactKeys) {
-                        const v = good(r[k]);
-                        if (v) return clean(v);
-                    }
-                    for (const k of sorted) {
-                        if (clientNorms.includes(normalize(k))) {
-                            const v = good(r[k]);
-                            if (v) return clean(v);
-                        }
-                    }
-
-                    // Step 6: Remarks fallback
+                    // Last resort: parse from remarks
                     return clean(getRowClientName(r, sheet) || '');
                 }},
                 { title: 'Client Doctor Name', getValue: (r) => {
