@@ -1562,6 +1562,34 @@
             
             const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
             const allKeys = Object.keys(rows[0]).filter(key => key !== '_sourceSheet');
+
+            // Pre-detect the client department column by scanning actual cell VALUES.
+            // This works regardless of what the column is named in the spreadsheet.
+            const CLIENT_DEPT_KW = ['CHRISTIAN MEDICAL','HAEMOTOL','HAEMATOL','NEPHROL',
+                                    'CYTOGENET','MEDICAL GENET','MOLECULAR ENDOCRIN',
+                                    'CMC VELLORE','CMC -','CMC-'];
+            const isDeptValue = v => {
+                const u = String(v||'').trim().toUpperCase();
+                return u.length > 3 && u.length < 150 && CLIENT_DEPT_KW.some(kw => u.includes(kw));
+            };
+            // Find column key whose values look like department names (check first 20 rows)
+            const clientDeptKey = (() => {
+                const sample = rows.slice(0, 20);
+                // Prefer a key that normalises to 'clientdepartment', then 'clientname'
+                const priority = allKeys.slice().sort((a,b) => {
+                    const order = ['clientdepartment','clientname','client','department'];
+                    const ia = order.indexOf(normalize(a)), ib = order.indexOf(normalize(b));
+                    return (ia<0?99:ia) - (ib<0?99:ib);
+                });
+                for (const k of priority) {
+                    if (sample.some(r => isDeptValue(r[k]))) return k;
+                }
+                // Fallback: any column whose values contain department keywords
+                for (const k of allKeys) {
+                    if (sample.some(r => isDeptValue(r[k]))) return k;
+                }
+                return null;
+            })();
             
             const definitions = {
                 sampleName: { title: 'Sample Name', keys: ['samplename', 'patientname', 'name', 'patient', 'patientsamplename'] },
@@ -1664,6 +1692,12 @@
                     const hasDate   = v => /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/.test(v);
                     const clean     = v => { const m = v.match(/\s+(Dr[\.\s].+)/i); return m ? v.replace(m[0],'').trim() : v; };
                     const good      = v => { const s = String(v||'').trim(); return s && !isDocName(s) && !hasDate(s) ? s : ''; };
+
+                    // Use the pre-detected column key (found by scanning actual cell values above)
+                    if (clientDeptKey) {
+                        const v = good(r[clientDeptKey]);
+                        if (v) return clean(v);
+                    }
 
                     // Log the row structure once per sheet so the browser console shows us the keys
                     if (!window._deptDebugLogged) window._deptDebugLogged = {};
