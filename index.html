@@ -1268,8 +1268,44 @@
         function showConfigModal() {
             const modal = document.getElementById('configModal');
             const content = document.getElementById('configContent');
-            
+
             let html = '<div class="config-section">';
+
+            // ── Client Department Quick Finder ──────────────────────────────────────
+            html += '<h3 style="color:#e74c3c;">🔎 Client Department — What the data actually contains</h3>';
+            html += '<p style="font-size:13px;color:#555;margin-bottom:12px;">This shows the raw column key and first-row value for every column that could be the client department, per sheet.</p>';
+            html += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px;">';
+            html += '<thead><tr style="background:#3498db;color:white;">'
+                  + '<th style="padding:6px 8px;text-align:left;">Sheet</th>'
+                  + '<th style="padding:6px 8px;text-align:left;">Column Key in JSON</th>'
+                  + '<th style="padding:6px 8px;text-align:left;">Row 1 Value</th>'
+                  + '<th style="padding:6px 8px;text-align:left;">Row 2 Value</th>'
+                  + '</tr></thead><tbody>';
+
+            const clientRe = /client|department|dept|division/i;
+            Object.keys(allData).filter(n => getSheetDate(n)).forEach((sheetName, si) => {
+                const rows = allData[sheetName].rows || [];
+                if (!rows.length) return;
+                const rowKeys = Object.keys(rows[0]).filter(k => k !== '_sourceSheet');
+                const clientKeys = rowKeys.filter(k => clientRe.test(k));
+                if (!clientKeys.length) {
+                    html += `<tr style="background:${si%2?'#fff':'#f8f9fa'}"><td style="padding:5px 8px;">${sheetName}</td>`
+                          + `<td colspan="3" style="padding:5px 8px;color:#e74c3c;">⚠ No column with "client/dept" in its name found. All keys: ${rowKeys.join(', ')}</td></tr>`;
+                } else {
+                    clientKeys.forEach(k => {
+                        const v1 = String(rows[0][k] || '');
+                        const v2 = rows[1] ? String(rows[1][k] || '') : '—';
+                        html += `<tr style="background:${si%2?'#fff':'#f8f9fa'}">`
+                              + `<td style="padding:5px 8px;font-weight:600;">${sheetName}</td>`
+                              + `<td style="padding:5px 8px;font-family:monospace;color:#2980b9;">${k}</td>`
+                              + `<td style="padding:5px 8px;">${v1 || '<em style="color:#aaa">empty</em>'}</td>`
+                              + `<td style="padding:5px 8px;">${v2 || '<em style="color:#aaa">empty</em>'}</td></tr>`;
+                    });
+                }
+            });
+            html += '</tbody></table>';
+            // ────────────────────────────────────────────────────────────────────────
+
             html += '<h3>🔍 Diagnostic Column Mapping</h3>';
             html += '<p style="margin-bottom: 20px; color: #7f8c8d; font-size: 14px;">If dropdowns are empty, check if the columns are detected correctly (✓) below. The system automatically searches headers and data content to map your fields.</p>';
             
