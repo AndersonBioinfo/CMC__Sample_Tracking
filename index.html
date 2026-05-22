@@ -1317,7 +1317,7 @@
                 const tab = document.createElement('button');
                 tab.className = 'tab';
                 tab.textContent = sheetName;
-                tab.onclick = () => displaySheet(sheetName);
+                tab.onclick = () => { activeTATFilter = null; displaySheet(sheetName); };
                 tabsContainer.appendChild(tab);
             });
         }
@@ -1372,33 +1372,12 @@
 
             currentView = displayRows;
             if (displayRows.length === 0) {
-                const tatLabel = activeTATFilter === 'Released' ? 'Completed' : activeTATFilter;
-                let reason = '';
-                let buttons = '';
-                const btnStyle = 'margin-top:15px;margin-right:10px;padding:10px 24px;border:none;border-radius:5px;cursor:pointer;font-size:14px;';
-
-                if (activeTATFilter && activeFilterFn) {
-                    reason = `No <strong>${tatLabel}</strong> samples matching <strong>${activeFilterLabel}</strong> in <strong>${sheetName}</strong>`;
-                    buttons = `
-                        <button onclick="activeTATFilter=null;displaySheet(currentSheet)" style="${btnStyle}background:#e67e22;color:white;">Clear Status Filter</button>
-                        <button onclick="showAllFilteredMonths()" style="${btnStyle}background:#3498db;color:white;">Show All Months</button>`;
-                } else if (activeTATFilter) {
-                    reason = `No <strong>${tatLabel}</strong> samples in <strong>${sheetName}</strong>`;
-                    buttons = `
-                        <button onclick="activeTATFilter=null;displaySheet(currentSheet)" style="${btnStyle}background:#e67e22;color:white;">Clear Status Filter</button>
-                        <button onclick="showAllFilteredMonths()" style="${btnStyle}background:#3498db;color:white;">Show All Months</button>`;
-                } else if (activeFilterFn) {
-                    reason = `No samples matching <strong>${activeFilterLabel}</strong> in <strong>${sheetName}</strong>`;
-                    buttons = `<button onclick="showAllFilteredMonths()" style="${btnStyle}background:#3498db;color:white;">Show All Months</button>`;
-                } else {
-                    reason = `No samples in <strong>${sheetName}</strong>`;
-                    buttons = `<button onclick="showAllSheets()" style="${btnStyle}background:#3498db;color:white;">Show All Months</button>`;
-                }
-
                 document.getElementById('contentArea').innerHTML = `
                     <div class="no-data">
-                        ${reason}<br>
-                        <div style="display:flex;flex-wrap:wrap;justify-content:center;">${buttons}</div>
+                        No matching samples in <strong>${sheetName}</strong><br>
+                        <button onclick="showAllFilteredMonths()" style="margin-top:15px;padding:10px 24px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;">
+                            Show All Months
+                        </button>
                     </div>`;
             } else {
                 renderTable(displayRows, baseTitle, sheetData.headers, statRows);
@@ -1406,7 +1385,6 @@
         }
 
         function showAllFilteredMonths() {
-            activeTATFilter = null;
             if (!activeFilterFn) { showAllSheets(); return; }
             const filteredData = [];
             Object.keys(allData).forEach(sheetName => {
