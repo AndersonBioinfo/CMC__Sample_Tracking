@@ -977,14 +977,31 @@
         function _rptSave(s){ try { localStorage.setItem(_RPT_STORE, JSON.stringify(s)); } catch { alert('Storage full.'); } }
 
         function handleFileUpload(event, enc) {
-            const key = decodeURIComponent(enc);
+            const key   = decodeURIComponent(enc);
             const files = Array.from(event.target.files);
             if (!files.length) return;
-            const deptRaw = decodeURIComponent(event.target.dataset.dept || '').toUpperCase();
-            const autoEmail = deptRaw.includes('MEDICAL GENET') &&
-                              (deptRaw.includes('CHRISTIAN') || deptRaw.includes('CMC'));
+
+            // Look up row from live currentView — more reliable than data-dept attribute
+            // which can be stale if data was cached before the Apps Script fix
+            let targetRow = null;
+            for (const row of currentView) {
+                if (_rowKey(row) === key) { targetRow = row; break; }
+            }
+            // Also check all sheets in case the current view is filtered
+            if (!targetRow) {
+                for (const sheetName of Object.keys(allData)) {
+                    for (const row of (allData[sheetName].rows || [])) {
+                        const r = { ...row, _sourceSheet: sheetName };
+                        if (_rowKey(r) === key) { targetRow = r; break; }
+                    }
+                    if (targetRow) break;
+                }
+            }
+
+            const autoEmail = targetRow ? isMedGeneticsRow(targetRow) : false;
+
             const store = _rptGet();
-            const list = store[key] || [];
+            const list  = store[key] || [];
             let done = 0;
             files.forEach(file => {
                 const reader = new FileReader();
@@ -995,7 +1012,6 @@
                         _rptSave(store);
                         displaySheet(currentSheet);
                         if (autoEmail) {
-                            // Auto-send email via Apps Script for Medical Genetics uploads
                             sendEmailViaScript(key,
                                 'jeevav936@gmail.com',
                                 'snandhana2011@gmail.com, nandhanas129@gmail.com',
