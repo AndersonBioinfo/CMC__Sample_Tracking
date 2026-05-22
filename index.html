@@ -1629,8 +1629,15 @@
                     const clean     = v => { const m = v.match(/\s+(Dr[\.\s].+)/i); return m ? v.replace(m[0],'').trim() : v; };
                     const good      = v => { const s = String(v||'').trim(); return s && !isDocName(s) && !hasDate(s) ? s : ''; };
 
+                    // Log the row structure once per sheet so the browser console shows us the keys
+                    if (!window._deptDebugLogged) window._deptDebugLogged = {};
+                    if (!window._deptDebugLogged[sheet]) {
+                        window._deptDebugLogged[sheet] = true;
+                        console.log('[CMC Tracker] Row keys for', sheet, ':', Object.keys(r).filter(k => k !== '_sourceSheet'));
+                        console.log('[CMC Tracker] Full first row:', JSON.stringify(Object.fromEntries(Object.entries(r).filter(([k]) => k !== '_sourceSheet'))));
+                    }
+
                     // Step 1: Try exact known header spellings — "Client Department" first, then "Client Name"
-                    //         (some 2025 sheets use "Client Name", 2026 sheets use "Client Department")
                     const exactKeys = [
                         'Client Department','client department','CLIENT DEPARTMENT','ClientDepartment','clientDepartment',
                         'Client Name','client name','CLIENT NAME','ClientName','clientName',
@@ -1639,36 +1646,56 @@
                     ];
                     for (const k of exactKeys) {
                         const v = good(r[k]);
-                        if (v) return clean(v);
+                        if (v && v.length > 3) return clean(v); // skip very short abbreviations like "CMC" in Step 1
                     }
 
-                    // Step 2: Normalized header scan (catches any casing / spacing variant)
+                    // Step 2: Normalized header scan — prefer 'clientdepartment' over 'clientname'
                     const clientNorms = ['clientdepartment','clientname','client','department','centername','referral','hospital'];
                     const rowKeys = Object.keys(r).filter(k => k !== '_sourceSheet');
-                    // Sort so 'clientdepartment' matches come before 'clientname'
                     const sorted = rowKeys.slice().sort((a, b) => {
-                        const na = normalize(a), nb = normalize(b);
-                        const ia = clientNorms.indexOf(na), ib = clientNorms.indexOf(nb);
+                        const ia = clientNorms.indexOf(normalize(a)), ib = clientNorms.indexOf(normalize(b));
                         if (ia === -1 && ib === -1) return 0;
-                        if (ia === -1) return 1;
-                        if (ib === -1) return -1;
-                        return ia - ib;
+                        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
                     });
                     for (const k of sorted) {
-                        const n = normalize(k);
-                        if (clientNorms.includes(n)) {
+                        if (clientNorms.includes(normalize(k))) {
+                            const v = good(r[k]);
+                            if (v && v.length > 3) return clean(v);
+                        }
+                    }
+
+                    // Step 3: columnMappings index-based lookup
+                    const mapped = good(getFieldValue(r, 'clientName', sheet));
+                    if (mapped && mapped.length > 3) return clean(mapped);
+
+                    // Step 4: Content scan — find ANY column whose value looks like a dept name
+                    const DEPT_KW = ['CHRISTIAN MEDICAL','HAEMOTOL','HAEMATOL','NEPHROL','CYTOGENET',
+                                     'MEDICAL GENET','MOLECULAR ENDOCRIN','CMC VELLORE','ONCOL'];
+                    const skipNorms = new Set(['remarks','remark','comment','notes',
+                                               'receiveddate','tatreport','reportreleaseddate','rawdatadate',
+                                               'samplename','patientname','samplenumber','sampleid','andid','andersonid',
+                                               'test','testname','status','clientdoctorname']);
+                    for (const k of rowKeys) {
+                        if (skipNorms.has(normalize(k))) continue;
+                        const v = String(r[k]||'').trim();
+                        if (v.length < 3 || v.length > 120 || hasDate(v) || isDocName(v)) continue;
+                        if (DEPT_KW.some(kw => v.toUpperCase().includes(kw))) return clean(v);
+                    }
+
+                    // Step 5: Short-form fallback (accept "CMC" etc. only as last resort)
+                    for (const k of exactKeys) {
+                        const v = good(r[k]);
+                        if (v) return clean(v);
+                    }
+                    for (const k of sorted) {
+                        if (clientNorms.includes(normalize(k))) {
                             const v = good(r[k]);
                             if (v) return clean(v);
                         }
                     }
 
-                    // Step 3: getFieldValue via columnMappings (index-based)
-                    const mapped = good(getFieldValue(r, 'clientName', sheet));
-                    if (mapped) return clean(mapped);
-
-                    // Step 4: getRowClientName (parses remarks for CMC/hospital keywords)
-                    const fromRemarks = getRowClientName(r, sheet);
-                    return fromRemarks ? clean(fromRemarks) : '';
+                    // Step 6: Remarks fallback
+                    return clean(getRowClientName(r, sheet) || '');
                 }},
                 { title: 'Client Doctor Name', getValue: (r) => {
                     const sheet = r._sourceSheet || currentSheet;
