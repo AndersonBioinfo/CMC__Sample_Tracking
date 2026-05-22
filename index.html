@@ -981,24 +981,24 @@
             const files = Array.from(event.target.files);
             if (!files.length) return;
 
-            // Look up row from live currentView — more reliable than data-dept attribute
-            // which can be stale if data was cached before the Apps Script fix
-            let targetRow = null;
-            for (const row of currentView) {
-                if (_rowKey(row) === key) { targetRow = row; break; }
-            }
-            // Also check all sheets in case the current view is filtered
-            if (!targetRow) {
-                for (const sheetName of Object.keys(allData)) {
-                    for (const row of (allData[sheetName].rows || [])) {
-                        const r = { ...row, _sourceSheet: sheetName };
-                        if (_rowKey(r) === key) { targetRow = r; break; }
-                    }
-                    if (targetRow) break;
+            // Method 1: data-medgen attribute set at render time (fastest)
+            let autoEmail = event.target.dataset.medgen === '1';
+
+            // Method 2: live row lookup from currentView
+            if (!autoEmail) {
+                for (const row of currentView) {
+                    if (_rowKey(row) === key) { autoEmail = isMedGeneticsRow(row); break; }
                 }
             }
-
-            const autoEmail = targetRow ? isMedGeneticsRow(targetRow) : false;
+            // Method 3: full allData scan (catches filtered views)
+            if (!autoEmail) {
+                outer: for (const sheetName of Object.keys(allData)) {
+                    for (const row of (allData[sheetName].rows || [])) {
+                        const r = { ...row, _sourceSheet: sheetName };
+                        if (_rowKey(r) === key) { autoEmail = isMedGeneticsRow(r); break outer; }
+                    }
+                }
+            }
 
             const store = _rptGet();
             const list  = store[key] || [];
@@ -1049,10 +1049,10 @@
                     <span class="report-file-remove" onclick="removeReportFile('${enc}',${i})">×</span>
                 </div>`;
             });
-            const dept = encodeURIComponent(String(row.clientName || row.clientDepartment || ''));
+            const medgen = isMedGeneticsRow(row) ? '1' : '0';
             html += `<label class="report-upload-btn">📎 ${files.length ? 'Add' : 'Upload'}
                 <input type="file" multiple style="display:none"
-                       data-dept="${dept}"
+                       data-medgen="${medgen}"
                        onchange="handleFileUpload(event,'${enc}')">
             </label></div>`;
             return html;
@@ -1063,29 +1063,51 @@
         function _mailGet()  { try { return JSON.parse(localStorage.getItem(_MAIL_STORE)||'{}'); } catch { return {}; } }
         function _mailSave(s){ try { localStorage.setItem(_MAIL_STORE, JSON.stringify(s)); } catch {} }
 
+        function showToast(message, type) {
+            const el = document.createElement('div');
+            const bg = type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db';
+            el.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:99999;padding:14px 22px;
+                border-radius:8px;color:white;font-size:14px;font-weight:600;
+                box-shadow:0 4px 14px rgba(0,0,0,0.25);background:${bg};max-width:340px;`;
+            el.textContent = message;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5000);
+        }
+
         function isMedGeneticsRow(row) {
+            // Check dedicated client fields first
             const dept = String(row.clientName || row.clientDepartment || '').toUpperCase();
-            return dept.includes('MEDICAL GENET') &&
-                   (dept.includes('CHRISTIAN') || dept.includes('CMC'));
+            if (dept.includes('MEDICAL GENET') && (dept.includes('CHRISTIAN') || dept.includes('CMC'))) return true;
+            // Broader scan: check ALL values in the row (catches cases where clientName is empty)
+            const all = Object.entries(row)
+                .filter(([k]) => k !== '_sourceSheet')
+                .map(([, v]) => String(v || '')).join(' ').toUpperCase();
+            return all.includes('MEDICAL GENET') && all.includes('CHRISTIAN MEDICAL');
         }
 
         async function sendEmailViaScript(rowKey, to, cc, subject, body) {
+            showToast('📧 Sending email…', 'info');
             try {
                 const params = new URLSearchParams({
                     action: 'sendEmail', to, cc, subject, body, _t: Date.now()
                 });
-                const res  = await fetch(`${APPS_SCRIPT_URL}?${params}`);
-                const json = await res.json();
+                const res  = await fetch(`${APPS_SCRIPT_URL}?${params}`, { redirect: 'follow' });
+                const text = await res.text();
+                let json;
+                try { json = JSON.parse(text); } catch { json = { success: false, error: text }; }
                 if (json.success) {
                     const store = _mailGet();
                     store[rowKey] = { sentAt: new Date().toISOString(), to };
                     _mailSave(store);
+                    showToast('✓ Email sent to ' + to, 'success');
                     setTimeout(() => displaySheet(currentSheet), 300);
                     return true;
                 }
-                console.error('Email send failed:', json.error);
+                showToast('❌ Email failed: ' + (json.error || 'Unknown error'), 'error');
+                console.error('Email send failed:', json);
                 return false;
             } catch (e) {
+                showToast('❌ Email error: ' + e.message, 'error');
                 console.error('Email error:', e);
                 return false;
             }
