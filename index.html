@@ -374,14 +374,14 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.08);
             overflow-x: auto;
             overflow-y: visible;
-            max-width: 100%;
+            width: 100%;
             position: relative;
         }
 
         table {
             width: 100%;
-            min-width: 1200px;
             border-collapse: collapse;
+            table-layout: fixed;
         }
         
         /* Smooth scrolling */
@@ -429,17 +429,19 @@
         th {
             background: #3498db;
             color: white;
-            padding: 15px 12px;
+            padding: 9px 7px;
             text-align: center;
             font-weight: 600;
+            font-size: 12px;
             position: sticky;
             top: 0;
             z-index: 10;
             cursor: pointer;
             user-select: none;
             transition: background 0.3s;
-            min-width: 150px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         th:hover {
@@ -462,26 +464,25 @@
         }
 
         td {
-            padding: 15px 12px;
+            padding: 8px 7px;
             border-bottom: 1px solid #ecf0f1;
-            font-size: 14px;
-            min-width: 150px;
-            max-width: 350px;
-            white-space: normal;
-            word-wrap: break-word;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
             vertical-align: middle;
             line-height: 1.4;
             text-align: center;
         }
 
+        /* Allow wrapping only in these columns */
+        td.wrap { white-space: normal; word-break: break-word; }
+
         tr:hover td {
             background: rgba(0, 0, 0, 0.04);
         }
 
-        .col-history {
-            min-width: 500px;
-            max-width: 600px;
-        }
+        .col-history { white-space: normal; word-break: break-word; }
 
         .error {
             background: #e74c3c;
@@ -1962,15 +1963,30 @@
                 </div>
             `;
             
-            html += '<div class="table-container"><table><thead><tr>';
-            
+            // Column width map — proportional widths that fit in one screen
+            const colWidths = {
+                'Sample Name': '11%', 'Gender': '4%', 'Age': '4%',
+                'Anderson ID': '8%', 'Sample Number': '8%', 'Test': '9%',
+                'Client Department': '9%', 'Client Doctor Name': '7%',
+                'Remarks': '7%', 'Received Date': '6%', 'Raw Data Date': '5%',
+                'TAT Report Date': '5%', 'Report Released Date': '6%',
+                'Status': '5%', 'Reports': '8%', 'Mail': '4%'
+            };
+            const totalCols = cols.length;
+            const defaultW = Math.floor(90 / totalCols) + '%';
+
+            html += '<div class="table-container"><table><colgroup>';
+            cols.forEach(col => {
+                html += `<col style="width:${colWidths[col.title] || defaultW}">`;
+            });
+            html += '</colgroup><thead><tr>';
+
             cols.forEach((col, index) => {
                 if (col.noSort) {
-                    const cls = col.title === 'Reports' ? 'col-report' : 'col-mail';
-                    html += `<th class="${cls}">${col.title}</th>`;
+                    html += `<th title="${col.title}">${col.title}</th>`;
                 } else {
                     const thClass = col.title === 'History' ? 'sortable col-history' : 'sortable';
-                    html += `<th class="${thClass}" onclick="sortTable(${index})">${col.title}</th>`;
+                    html += `<th class="${thClass}" onclick="sortTable(${index})" title="${col.title}">${col.title}</th>`;
                 }
             });
 
