@@ -637,6 +637,23 @@
             background: #c0392b;
         }
 
+        /* ── Email modal ───────────────────────────────────── */
+        .email-form-group { margin-bottom: 13px; }
+        .email-form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #2c3e50; }
+        .email-form-group input {
+            width: 100%; padding: 8px 12px; border: 1px solid #ddd;
+            border-radius: 5px; font-size: 13px; box-sizing: border-box;
+        }
+        .email-form-group textarea {
+            width: 100%; padding: 8px 12px; border: 1px solid #ddd;
+            border-radius: 5px; font-size: 13px; box-sizing: border-box;
+            height: 160px; resize: vertical; font-family: inherit; line-height: 1.5;
+        }
+        .email-send-btn { background:#27ae60; color:white; border:none; padding:10px 24px; border-radius:5px; cursor:pointer; font-weight:600; font-size:14px; }
+        .email-send-btn:hover { background:#2ecc71; }
+        .email-cancel-btn { background:#ecf0f1; color:#2c3e50; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-size:14px; }
+        .email-cancel-btn:hover { background:#dfe6e9; }
+
         .config-section {
             margin-bottom: 20px;
         }
@@ -777,6 +794,42 @@
                 <button class="close-btn" onclick="closeConfigModal()">Close</button>
             </div>
             <div id="configContent"></div>
+        </div>
+    </div>
+
+    <!-- Email Compose Modal -->
+    <div id="emailModal" class="modal">
+        <div class="modal-content" style="max-width:660px;">
+            <div class="modal-header">
+                <h2>✉️ Send Report Email</h2>
+                <button class="close-btn" onclick="closeEmailModal()">Close</button>
+            </div>
+            <div style="padding:4px 0 0;">
+                <div class="email-form-group">
+                    <label>To:</label>
+                    <input type="email" id="emailTo" placeholder="recipient@example.com">
+                </div>
+                <div class="email-form-group">
+                    <label>From:</label>
+                    <input type="email" id="emailFrom" placeholder="your@email.com">
+                </div>
+                <div class="email-form-group">
+                    <label>CC:</label>
+                    <input type="text" id="emailCC" placeholder="cc1@email.com, cc2@email.com">
+                </div>
+                <div class="email-form-group">
+                    <label>Subject:</label>
+                    <input type="text" id="emailSubject">
+                </div>
+                <div class="email-form-group">
+                    <label>Content:</label>
+                    <textarea id="emailBody"></textarea>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
+                    <button class="email-cancel-btn" onclick="closeEmailModal()">Cancel</button>
+                    <button class="email-send-btn" onclick="sendEmailFromModal()">✉️ Open in Mail App</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -927,6 +980,10 @@
             const key = decodeURIComponent(enc);
             const files = Array.from(event.target.files);
             if (!files.length) return;
+            // Read department from data attribute to decide if email modal should open
+            const deptRaw = decodeURIComponent(event.target.dataset.dept || '').toUpperCase();
+            const autoEmail = deptRaw.includes('MEDICAL GENET') &&
+                              (deptRaw.includes('CHRISTIAN') || deptRaw.includes('CMC'));
             const store = _rptGet();
             const list = store[key] || [];
             let done = 0;
@@ -934,7 +991,15 @@
                 const reader = new FileReader();
                 reader.onload = e => {
                     list.push({ name: file.name, dataUrl: e.target.result });
-                    if (++done === files.length) { store[key] = list; _rptSave(store); displaySheet(currentSheet); }
+                    if (++done === files.length) {
+                        store[key] = list;
+                        _rptSave(store);
+                        displaySheet(currentSheet);
+                        if (autoEmail) {
+                            // Auto-open email modal for Medical Genetics uploads
+                            setTimeout(() => openEmailModal({ clientName: decodeURIComponent(event.target.dataset.dept || '') }), 400);
+                        }
+                    }
                 };
                 reader.readAsDataURL(file);
             });
@@ -964,13 +1029,62 @@
                     <span class="report-file-remove" onclick="removeReportFile('${enc}',${i})">×</span>
                 </div>`;
             });
+            const dept = encodeURIComponent(String(row.clientName || row.clientDepartment || ''));
             html += `<label class="report-upload-btn">📎 ${files.length ? 'Add' : 'Upload'}
-                <input type="file" multiple style="display:none" onchange="handleFileUpload(event,'${enc}')">
+                <input type="file" multiple style="display:none"
+                       data-dept="${dept}"
+                       onchange="handleFileUpload(event,'${enc}')">
             </label></div>`;
             return html;
         }
 
+        // ── Email modal helpers ───────────────────────────────────────────────────
+        function isMedGeneticsRow(row) {
+            const dept = String(row.clientName || row.clientDepartment || '').toUpperCase();
+            return dept.includes('MEDICAL GENET') &&
+                   (dept.includes('CHRISTIAN') || dept.includes('CMC'));
+        }
+
+        function openEmailModal(row) {
+            const medGen = row && isMedGeneticsRow(row);
+            document.getElementById('emailTo').value      = medGen ? 'genetics@andersondiagnostics.in' : '';
+            document.getElementById('emailFrom').value    = '';
+            document.getElementById('emailCC').value      = medGen
+                ? 'andersondiagnostics.com, genetics@andersondiagnostics.in'
+                : '';
+            document.getElementById('emailSubject').value = medGen
+                ? 'Regarding Whole Exome Reports'
+                : row ? `[${row._sourceSheet || ''}] Report` : '';
+            document.getElementById('emailBody').value    = medGen
+                ? `Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                : '';
+            document.getElementById('emailModal').classList.add('active');
+        }
+
+        function closeEmailModal() {
+            document.getElementById('emailModal').classList.remove('active');
+        }
+
+        function sendEmailFromModal() {
+            const to      = document.getElementById('emailTo').value.trim();
+            const cc      = document.getElementById('emailCC').value.trim();
+            const subject = document.getElementById('emailSubject').value.trim();
+            const body    = document.getElementById('emailBody').value.trim();
+            let link = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            if (cc) link += `&cc=${encodeURIComponent(cc)}`;
+            window.open(link, '_blank');
+            closeEmailModal();
+        }
+
         function renderMailCell(row) {
+            if (isMedGeneticsRow(row)) {
+                const enc = encodeURIComponent(JSON.stringify({
+                    clientName: row.clientName || '', _sheet: row._sourceSheet || ''
+                }));
+                return `<button class="mail-btn" style="background:#8e44ad;"
+                    onclick='openEmailModal(${JSON.stringify({clientName: row.clientName || '', _sourceSheet: row._sourceSheet || ''})})'>
+                    ✉ Mail</button>`;
+            }
             const sheet = row._sourceSheet || currentSheet;
             const entries = Object.entries(row).filter(([k]) => k !== '_sourceSheet');
             const firstVal = entries.length ? String(entries[0][1] || '').trim() : '';
@@ -2087,11 +2201,12 @@
         }
 
 
-        // Close modal when clicking outside
+        // Close modals when clicking outside
         document.getElementById('configModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeConfigModal();
-            }
+            if (e.target === this) closeConfigModal();
+        });
+        document.getElementById('emailModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEmailModal();
         });
     </script>
     <!-- Dashboard v1.1.2 - Self-Healing & Fallback Enabled -->
