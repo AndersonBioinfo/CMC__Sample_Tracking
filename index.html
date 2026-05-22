@@ -889,7 +889,7 @@
         }
 
         const CACHE_KEY = 'cmc_tracker_data';
-        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+        const CACHE_TTL = 0; // Always fetch fresh — ensures clientName is populated
 
         function showError(msg) {
             document.getElementById('contentArea').innerHTML = `
@@ -1050,7 +1050,13 @@
                 </div>`;
             });
             const medgen = isMedGeneticsRow(row) ? '1' : '0';
-            html += `<label class="report-upload-btn">📎 ${files.length ? 'Add' : 'Upload'}
+            const btnStyle = medgen === '1'
+                ? 'background:#8e44ad;' : '';
+            const btnLabel = medgen === '1'
+                ? `📎✉ ${files.length ? 'Add' : 'Upload'}`
+                : `📎 ${files.length ? 'Add' : 'Upload'}`;
+            html += `<label class="report-upload-btn" style="${btnStyle}" title="${medgen==='1'?'Upload & auto-send email':'Upload file'}">
+                ${btnLabel}
                 <input type="file" multiple style="display:none"
                        data-medgen="${medgen}"
                        onchange="handleFileUpload(event,'${enc}')">
@@ -1075,10 +1081,11 @@
         }
 
         function isMedGeneticsRow(row) {
-            // Check dedicated client fields first
+            // 1. Dedicated client field (works after Apps Script fix + fresh data)
             const dept = String(row.clientName || row.clientDepartment || '').toUpperCase();
             if (dept.includes('MEDICAL GENET') && (dept.includes('CHRISTIAN') || dept.includes('CMC'))) return true;
-            // Broader scan: check ALL values in the row (catches cases where clientName is empty)
+
+            // 2. Scan every field value (fallback when clientName is still empty)
             const all = Object.entries(row)
                 .filter(([k]) => k !== '_sourceSheet')
                 .map(([, v]) => String(v || '')).join(' ').toUpperCase();
