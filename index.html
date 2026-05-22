@@ -1613,33 +1613,66 @@
                 { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
                 { title: 'Client Department', getValue: (r) => {
                     const sheet = r._sourceSheet || currentSheet;
-                    const isDocName = v => /^Dr[\.\s]/i.test(String(v).trim());
-                    const clean = v => { const m = v.match(/\s+(Dr[\.\s].+)/i); return m ? v.replace(m[0],'').trim() : v; };
+                    const isDocName  = v => /^Dr[\.\s]/i.test(String(v).trim());
+                    const hasDate    = v => /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/.test(v);
+                    const clean      = v => { const m = v.match(/\s+(Dr[\.\s].+)/i); return m ? v.replace(m[0],'').trim() : v; };
+                    const DEPT_KW    = ['CHRISTIAN MEDICAL','HAEMOTOL','HAEMATOL','NEPHROL','CYTOGENET',
+                                        'MEDICAL GENET','MOLECULAR ENDOCRIN','ONCOL','CMC VELLORE','CMC-'];
 
-                    // Try every possible path, in order of reliability
+                    // Build set of known non-client column keys to skip in content scan
+                    const skipKeys = new Set(['_sourceSheet']);
+                    [keyMap.remarks, keyMap.receivedDate, keyMap.rawDataDate,
+                     keyMap.tatReportDate, keyMap.reportReleasedDate,
+                     keyMap.sampleName, keyMap.sampleNumber, keyMap.andId, keyMap.test
+                    ].forEach(k => { if (k) skipKeys.add(k); });
+
+                    // --- candidate functions in priority order ---
                     const candidates = [
-                        // index-based via columnMappings (most robust against key casing issues)
+                        // 1. columnMappings index-based (handles any key casing)
                         () => { const v = getFieldValue(r, 'clientName', sheet); return v ? String(v).trim() : ''; },
-                        // string-key via renderTable keyMap
+                        // 2. keyMap string-key
                         () => keyMap.clientDept ? String(r[keyMap.clientDept] || '').trim() : '',
-                        // scan every row key for anything that normalises to a client-column name
+                        // 3. header-name scan (normalized)
                         () => {
                             let found = '';
                             Object.keys(r).forEach(k => {
-                                if (found || k === '_sourceSheet') return;
+                                if (found || skipKeys.has(k)) return;
                                 const n = normalize(k);
-                                if (['clientdepartment','clientname','client','centername','referral','hospital'].includes(n) && r[k])
+                                if (['clientdepartment','clientname','client','centername','referral','hospital','department'].includes(n) && r[k])
                                     found = String(r[k]).trim();
                             });
                             return found;
                         },
-                        // remarks fallback
+                        // 4. Content scan — find a column whose VALUE contains department keywords
+                        //    (catches "Client Department" even when the header is unrecognised)
+                        () => {
+                            let found = '';
+                            Object.keys(r).forEach(k => {
+                                if (found || skipKeys.has(k)) return;
+                                const v = String(r[k] || '').trim();
+                                if (v.length < 3 || v.length > 120 || hasDate(v)) return;
+                                if (DEPT_KW.some(kw => v.toUpperCase().includes(kw))) found = v;
+                            });
+                            return found;
+                        },
+                        // 5. Broad keyword scan (shorter values only)
+                        () => {
+                            let found = '';
+                            Object.keys(r).forEach(k => {
+                                if (found || skipKeys.has(k)) return;
+                                const v = String(r[k] || '').trim();
+                                if (v.length < 3 || v.length > 60 || hasDate(v)) return;
+                                if (/CMC|COLLEGE|HOSPITAL|CLINIC|DEPT|DEPARTMENT/i.test(v)) found = v;
+                            });
+                            return found;
+                        },
+                        // 6. Remarks-based normalised name
                         () => getRowClientName(r, sheet) || '',
                     ];
 
                     for (const fn of candidates) {
                         const v = fn();
-                        if (v && !isDocName(v)) return clean(v);
+                        if (v && !isDocName(v) && !hasDate(v)) return clean(v);
                     }
                     return '';
                 }},
