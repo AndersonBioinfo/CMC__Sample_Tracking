@@ -1632,6 +1632,8 @@
                                 rawClient = String(r[k]).trim();
                         });
                     }
+                    // 4. Parse from remarks when no client column exists
+                    if (!rawClient) rawClient = getRowClientName(r, sheet);
                     if (rawClient) {
                         const drMatch = rawClient.match(/\s+(Dr\..*|Dr\s+.*)/i);
                         if (drMatch) return rawClient.replace(drMatch[0], '').trim();
