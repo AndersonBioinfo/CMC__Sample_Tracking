@@ -1612,64 +1612,50 @@
                 { title: 'Sample Number', getValue: (r) => keyMap.sampleNumber ? r[keyMap.sampleNumber] : '' },
                 { title: 'Test', getValue: (r) => keyMap.test ? r[keyMap.test] : '' },
                 { title: 'Client Department', getValue: (r) => {
-                    let rawClient = '';
                     const sheet = r._sourceSheet || currentSheet;
-                    // 1. keyMap match (from definitions patterns)
+                    const isDocName = v => /^Dr[\.\s]/i.test(String(v).trim());
+
+                    // 1. Direct keyMap column (most reliable — matches "Client Department" header exactly)
                     if (keyMap.clientDept && r[keyMap.clientDept]) {
-                        rawClient = String(r[keyMap.clientDept]).trim();
+                        let v = String(r[keyMap.clientDept]).trim();
+                        if (!isDocName(v)) {
+                            const m = v.match(/\s+(Dr[\.\s].+)/i);
+                            return m ? v.replace(m[0], '').trim() : v;
+                        }
                     }
-                    // 2. columnMappings fallback (detectColumnMappings uses broader COLUMN_PATTERNS)
-                    if (!rawClient) {
-                        const mapped = columnMappings[sheet] && columnMappings[sheet].clientName;
-                        if (mapped && r[mapped]) rawClient = String(r[mapped]).trim();
+                    // 2. columnMappings — only use if value is NOT a bare doctor name
+                    const mapped = columnMappings[sheet] && columnMappings[sheet].clientName;
+                    if (mapped && r[mapped]) {
+                        let v = String(r[mapped]).trim();
+                        if (!isDocName(v)) {
+                            const m = v.match(/\s+(Dr[\.\s].+)/i);
+                            return m ? v.replace(m[0], '').trim() : v;
+                        }
                     }
-                    // 3. Last-resort scan
-                    if (!rawClient) {
-                        Object.keys(r).forEach(k => {
-                            if (k === '_sourceSheet') return;
-                            const norm = normalize(k);
-                            if (['clientname','clientdepartment','client','centername','referral','hospital'].includes(norm) && r[k])
-                                rawClient = String(r[k]).trim();
-                        });
-                    }
-                    // 4. Parse from remarks when no client column exists
-                    if (!rawClient) rawClient = getRowClientName(r, sheet);
-                    if (rawClient) {
-                        const drMatch = rawClient.match(/\s+(Dr\..*|Dr\s+.*)/i);
-                        if (drMatch) return rawClient.replace(drMatch[0], '').trim();
-                    }
-                    return rawClient;
+                    // 3. Remarks-based extraction (getRowClientName parses CMC/hospital keywords)
+                    const fromRemarks = getRowClientName(r, sheet);
+                    if (fromRemarks && !isDocName(fromRemarks)) return fromRemarks;
+                    return '';
                 }},
                 { title: 'Client Doctor Name', getValue: (r) => {
-                    let rawClient = '';
                     const sheet = r._sourceSheet || currentSheet;
-                    if (keyMap.clientDept && r[keyMap.clientDept]) {
-                        rawClient = String(r[keyMap.clientDept]).trim();
-                    }
-                    if (!rawClient) {
-                        const mapped = columnMappings[sheet] && columnMappings[sheet].clientName;
-                        if (mapped && r[mapped]) rawClient = String(r[mapped]).trim();
-                    }
-                    if (!rawClient) {
-                        Object.keys(r).forEach(k => {
-                            if (k === '_sourceSheet') return;
-                            const norm = normalize(k);
-                            if (['clientname','clientdepartment','client','centername','referral','hospital'].includes(norm) && r[k])
-                                rawClient = String(r[k]).trim();
-                        });
-                    }
-                    if (rawClient) {
-                        const drMatch = rawClient.match(/\s+(Dr\..*|Dr\s+.*)/i);
-                        if (drMatch) return drMatch[1].trim();
-                    }
-                    // Standalone: dedicated "Client Doctor Name" column
+                    // 1. Dedicated "Client Doctor Name" column — check first
                     let docName = '';
                     Object.keys(r).forEach(k => {
-                        const norm = normalize(k);
-                        if (norm === 'clientdoctorname' && r[k] && String(r[k]).trim())
-                            docName = String(r[k]).trim();
+                        if (normalize(k) === 'clientdoctorname' && r[k]) docName = String(r[k]).trim();
                     });
-                    return docName;
+                    if (docName) return docName;
+                    // 2. Extract "Dr." suffix from the Client Department column (older sheet format)
+                    if (keyMap.clientDept && r[keyMap.clientDept]) {
+                        const m = String(r[keyMap.clientDept]).match(/\s+(Dr[\.\s].+)/i);
+                        if (m) return m[1].trim();
+                    }
+                    const mapped = columnMappings[sheet] && columnMappings[sheet].clientName;
+                    if (mapped && r[mapped]) {
+                        const m = String(r[mapped]).match(/\s+(Dr[\.\s].+)/i);
+                        if (m) return m[1].trim();
+                    }
+                    return '';
                 }},
                 { title: 'Remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
                 { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
