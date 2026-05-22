@@ -674,6 +674,38 @@
         .mapping-missing {
             color: #e74c3c;
         }
+
+        .col-report { min-width: 160px; }
+        .col-mail   { min-width: 80px; text-align: center; }
+
+        .report-file-chip {
+            display: flex; align-items: center; gap: 4px;
+            background: #e8f4fd; border-radius: 4px;
+            padding: 2px 6px; margin-bottom: 3px; font-size: 11px;
+        }
+        .report-file-chip a {
+            color: #2980b9; text-decoration: none;
+            overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; max-width: 120px;
+        }
+        .report-file-chip a:hover { text-decoration: underline; }
+        .report-file-remove {
+            cursor: pointer; color: #e74c3c; font-weight: bold; flex-shrink: 0;
+        }
+        .report-upload-btn {
+            display: inline-flex; align-items: center; gap: 3px;
+            background: #2980b9; color: white; border-radius: 4px;
+            padding: 3px 8px; font-size: 11px; cursor: pointer;
+            white-space: nowrap; margin-top: 2px;
+        }
+        .report-upload-btn:hover { background: #1a6fa0; }
+        .mail-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #8e44ad; color: white; border-radius: 4px;
+            padding: 4px 10px; font-size: 11px; text-decoration: none;
+            white-space: nowrap;
+        }
+        .mail-btn:hover { background: #6c3483; }
     </style>
 </head>
 <body>
@@ -874,6 +906,79 @@
                 console.error('[CMC Tracker] loadAllData error:', error);
             }
         }
+
+        // ── Report upload & Mail helpers ─────────────────────────────────────────
+        const _RPT_STORE = 'cmc_report_files';
+
+        function _rowKey(row) {
+            const sheet = row._sourceSheet || currentSheet;
+            const s = JSON.stringify(
+                Object.entries(row).filter(([k]) => k !== '_sourceSheet').sort(([a],[b]) => a.localeCompare(b))
+            );
+            let h = 0;
+            for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+            return sheet + '_' + (h >>> 0).toString(36);
+        }
+
+        function _rptGet()  { try { return JSON.parse(localStorage.getItem(_RPT_STORE) || '{}'); } catch { return {}; } }
+        function _rptSave(s){ try { localStorage.setItem(_RPT_STORE, JSON.stringify(s)); } catch { alert('Storage full.'); } }
+
+        function handleFileUpload(event, enc) {
+            const key = decodeURIComponent(enc);
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+            const store = _rptGet();
+            const list = store[key] || [];
+            let done = 0;
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    list.push({ name: file.name, dataUrl: e.target.result });
+                    if (++done === files.length) { store[key] = list; _rptSave(store); displaySheet(currentSheet); }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeReportFile(enc, idx) {
+            const key = decodeURIComponent(enc);
+            const store = _rptGet();
+            if (store[key]) {
+                store[key].splice(idx, 1);
+                if (!store[key].length) delete store[key];
+                _rptSave(store); displaySheet(currentSheet);
+            }
+        }
+
+        function renderReportCell(row, sheetValue) {
+            const key  = _rowKey(row);
+            const enc  = encodeURIComponent(key);
+            const files = (_rptGet()[key] || []);
+            const existing = String(sheetValue || '').trim();
+            let html = '<div>';
+            if (existing) html += `<div style="font-size:11px;color:#555;margin-bottom:3px;">${existing}</div>`;
+            files.forEach((f, i) => {
+                const safeName = f.name.replace(/"/g, '');
+                html += `<div class="report-file-chip">
+                    <a href="${f.dataUrl}" download="${safeName}" title="${safeName}">${f.name}</a>
+                    <span class="report-file-remove" onclick="removeReportFile('${enc}',${i})">×</span>
+                </div>`;
+            });
+            html += `<label class="report-upload-btn">📎 ${files.length ? 'Add' : 'Upload'}
+                <input type="file" multiple style="display:none" onchange="handleFileUpload(event,'${enc}')">
+            </label></div>`;
+            return html;
+        }
+
+        function renderMailCell(row) {
+            const sheet = row._sourceSheet || currentSheet;
+            const entries = Object.entries(row).filter(([k]) => k !== '_sourceSheet');
+            const firstVal = entries.length ? String(entries[0][1] || '').trim() : '';
+            const subject  = encodeURIComponent(`[${sheet}] Report: ${firstVal}`);
+            const body     = encodeURIComponent(entries.map(([k,v]) => `${k}: ${v ?? '-'}`).join('\n'));
+            return `<a class="mail-btn" href="mailto:?subject=${subject}&body=${body}" title="Compose mail for this sample">✉ Mail</a>`;
+        }
+        // ── End helpers ──────────────────────────────────────────────────────────
 
         function detectColumnMappings() {
             columnMappings = {};
@@ -1576,7 +1681,22 @@
                 return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
             };
 
-            otherKeys.forEach(ok => cols.push({ title: formatHeader(ok), getValue: (r) => r[ok] }));
+            let reportColAdded = false;
+            otherKeys.forEach(ok => {
+                const title = formatHeader(ok);
+                const norm  = title.toLowerCase().replace(/\s/g,'');
+                if (norm === 'reports') {
+                    cols.push({ title: 'Reports', getValue: (r) => renderReportCell(r, r[ok]), noSort: true });
+                    cols.push({ title: 'Mail',    getValue: (r) => renderMailCell(r),           noSort: true });
+                    reportColAdded = true;
+                } else {
+                    cols.push({ title, getValue: (r) => r[ok] });
+                }
+            });
+            if (!reportColAdded) {
+                cols.push({ title: 'Reports', getValue: (r) => renderReportCell(r, ''), noSort: true });
+                cols.push({ title: 'Mail',    getValue: (r) => renderMailCell(r),       noSort: true });
+            }
 
             currentTableCols = cols;
 
@@ -1596,8 +1716,13 @@
             html += '<div class="table-container"><table><thead><tr>';
             
             cols.forEach((col, index) => {
-                const thClass = col.title === 'History' ? 'sortable col-history' : 'sortable';
-                html += `<th class="${thClass}" onclick="sortTable(${index})">${col.title}</th>`;
+                if (col.noSort) {
+                    const cls = col.title === 'Reports' ? 'col-report' : 'col-mail';
+                    html += `<th class="${cls}">${col.title}</th>`;
+                } else {
+                    const thClass = col.title === 'History' ? 'sortable col-history' : 'sortable';
+                    html += `<th class="${thClass}" onclick="sortTable(${index})">${col.title}</th>`;
+                }
             });
 
             html += '</tr></thead><tbody id="tableBody">';
@@ -1608,10 +1733,14 @@
 
                 cols.forEach(col => {
                     const value = col.getValue(row);
-                    const tdClass = col.title === 'History' ? ' class="col-history"' : '';
                     if (col.title === 'Status') {
                         html += `<td>${value}</td>`;
+                    } else if (col.title === 'Reports') {
+                        html += `<td class="col-report">${value}</td>`;
+                    } else if (col.title === 'Mail') {
+                        html += `<td class="col-mail">${value}</td>`;
                     } else {
+                        const tdClass = col.title === 'History' ? ' class="col-history"' : '';
                         html += `<td${tdClass}>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
                 });
@@ -1760,6 +1889,7 @@
 
         function sortTable(columnIndex) {
             if (!currentTableCols || !currentTableCols[columnIndex]) return;
+            if (currentTableCols[columnIndex].noSort) return;
             
             const colDef = currentTableCols[columnIndex];
             
