@@ -827,7 +827,7 @@
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:6px;">
                     <button class="email-cancel-btn" onclick="closeEmailModal()">Cancel</button>
-                    <button class="email-send-btn" onclick="sendEmailFromModal()">✉️ Open in Mail App</button>
+                    <button class="email-send-btn" onclick="sendEmailFromModal()">✉️ Send Email</button>
                 </div>
             </div>
         </div>
@@ -980,7 +980,6 @@
             const key = decodeURIComponent(enc);
             const files = Array.from(event.target.files);
             if (!files.length) return;
-            // Read department from data attribute to decide if email modal should open
             const deptRaw = decodeURIComponent(event.target.dataset.dept || '').toUpperCase();
             const autoEmail = deptRaw.includes('MEDICAL GENET') &&
                               (deptRaw.includes('CHRISTIAN') || deptRaw.includes('CMC'));
@@ -996,8 +995,13 @@
                         _rptSave(store);
                         displaySheet(currentSheet);
                         if (autoEmail) {
-                            // Auto-open email modal for Medical Genetics uploads
-                            setTimeout(() => openEmailModal({ clientName: decodeURIComponent(event.target.dataset.dept || '') }), 400);
+                            // Auto-send email via Apps Script for Medical Genetics uploads
+                            sendEmailViaScript(key,
+                                'jeevav936@gmail.com',
+                                'snandhana2011@gmail.com, nandhanas129@gmail.com',
+                                'Regarding Whole Exome Reports',
+                                'Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs'
+                            );
                         }
                     }
                 };
@@ -1038,26 +1042,50 @@
             return html;
         }
 
-        // ── Email modal helpers ───────────────────────────────────────────────────
+        // ── Email helpers ─────────────────────────────────────────────────────────
+        const _MAIL_STORE = 'cmc_mail_sent';
+        function _mailGet()  { try { return JSON.parse(localStorage.getItem(_MAIL_STORE)||'{}'); } catch { return {}; } }
+        function _mailSave(s){ try { localStorage.setItem(_MAIL_STORE, JSON.stringify(s)); } catch {} }
+
         function isMedGeneticsRow(row) {
             const dept = String(row.clientName || row.clientDepartment || '').toUpperCase();
             return dept.includes('MEDICAL GENET') &&
                    (dept.includes('CHRISTIAN') || dept.includes('CMC'));
         }
 
-        function openEmailModal(row) {
+        async function sendEmailViaScript(rowKey, to, cc, subject, body) {
+            try {
+                const params = new URLSearchParams({
+                    action: 'sendEmail', to, cc, subject, body, _t: Date.now()
+                });
+                const res  = await fetch(`${APPS_SCRIPT_URL}?${params}`);
+                const json = await res.json();
+                if (json.success) {
+                    const store = _mailGet();
+                    store[rowKey] = { sentAt: new Date().toISOString(), to };
+                    _mailSave(store);
+                    setTimeout(() => displaySheet(currentSheet), 300);
+                    return true;
+                }
+                console.error('Email send failed:', json.error);
+                return false;
+            } catch (e) {
+                console.error('Email error:', e);
+                return false;
+            }
+        }
+
+        function openEmailModal(row, rowKey) {
             const medGen = row && isMedGeneticsRow(row);
             document.getElementById('emailTo').value      = medGen ? 'jeevav936@gmail.com' : '';
             document.getElementById('emailFrom').value    = medGen ? 'andersonbioinfo@gmail.com' : '';
-            document.getElementById('emailCC').value      = medGen
-                ? 'snandhana2011@gmail.com, nandhanas129@gmail.com'
-                : '';
-            document.getElementById('emailSubject').value = medGen
-                ? 'Regarding Whole Exome Reports'
-                : row ? `[${row._sourceSheet || ''}] Report` : '';
+            document.getElementById('emailCC').value      = medGen ? 'snandhana2011@gmail.com, nandhanas129@gmail.com' : '';
+            document.getElementById('emailSubject').value = medGen ? 'Regarding Whole Exome Reports'
+                : row ? `[${row._sourceSheet||''}] Report` : '';
             document.getElementById('emailBody').value    = medGen
                 ? `Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
                 : '';
+            document.getElementById('emailModal').dataset.rowKey = rowKey || '';
             document.getElementById('emailModal').classList.add('active');
         }
 
@@ -1065,32 +1093,50 @@
             document.getElementById('emailModal').classList.remove('active');
         }
 
-        function sendEmailFromModal() {
+        async function sendEmailFromModal() {
             const to      = document.getElementById('emailTo').value.trim();
             const cc      = document.getElementById('emailCC').value.trim();
             const subject = document.getElementById('emailSubject').value.trim();
             const body    = document.getElementById('emailBody').value.trim();
-            let link = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            if (cc) link += `&cc=${encodeURIComponent(cc)}`;
-            window.open(link, '_blank');
-            closeEmailModal();
+            const rowKey  = document.getElementById('emailModal').dataset.rowKey || '';
+            const btn     = document.querySelector('.email-send-btn');
+            btn.textContent = 'Sending…'; btn.disabled = true;
+            const ok = await sendEmailViaScript(rowKey, to, cc, subject, body);
+            btn.textContent = '✉️ Send Email'; btn.disabled = false;
+            if (ok) {
+                closeEmailModal();
+                alert('✓ Email sent successfully!');
+            } else {
+                alert('❌ Failed to send. Check Apps Script deployment and try again.');
+            }
         }
 
         function renderMailCell(row) {
-            if (isMedGeneticsRow(row)) {
-                const enc = encodeURIComponent(JSON.stringify({
-                    clientName: row.clientName || '', _sheet: row._sourceSheet || ''
-                }));
-                return `<button class="mail-btn" style="background:#8e44ad;"
-                    onclick='openEmailModal(${JSON.stringify({clientName: row.clientName || '', _sourceSheet: row._sourceSheet || ''})})'>
-                    ✉ Mail</button>`;
+            const key   = _rowKey(row);
+            const sent  = _mailGet()[key];
+            if (sent) {
+                const t = new Date(sent.sentAt);
+                const label = `${t.getDate().toString().padStart(2,'0')}/${(t.getMonth()+1).toString().padStart(2,'0')} ${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}`;
+                const encKey = encodeURIComponent(key);
+                const rowJson = JSON.stringify({clientName: row.clientName||'', _sourceSheet: row._sourceSheet||''});
+                return `<div style="text-align:center;line-height:1.4;">
+                    <span style="color:#27ae60;font-weight:700;font-size:13px;">✓ Mail Sent</span><br>
+                    <span style="font-size:10px;color:#888;">${label}</span><br>
+                    <button onclick='openEmailModal(${rowJson},"${encKey}")' style="margin-top:4px;font-size:11px;padding:2px 8px;background:#8e44ad;color:white;border:none;border-radius:3px;cursor:pointer;">Resend</button>
+                </div>`;
             }
-            const sheet = row._sourceSheet || currentSheet;
+            if (isMedGeneticsRow(row)) {
+                const rowJson = JSON.stringify({clientName: row.clientName||'', _sourceSheet: row._sourceSheet||''});
+                const encKey  = encodeURIComponent(key);
+                return `<button class="mail-btn" style="background:#8e44ad;"
+                    onclick='openEmailModal(${rowJson},"${encKey}")'>✉ Mail</button>`;
+            }
+            const sheet   = row._sourceSheet || currentSheet;
             const entries = Object.entries(row).filter(([k]) => k !== '_sourceSheet');
-            const firstVal = entries.length ? String(entries[0][1] || '').trim() : '';
-            const subject  = encodeURIComponent(`[${sheet}] Report: ${firstVal}`);
-            const body     = encodeURIComponent(entries.map(([k,v]) => `${k}: ${v ?? '-'}`).join('\n'));
-            return `<a class="mail-btn" href="mailto:?subject=${subject}&body=${body}" title="Compose mail for this sample">✉ Mail</a>`;
+            const firstVal= entries.length ? String(entries[0][1]||'').trim() : '';
+            const subject = encodeURIComponent(`[${sheet}] Report: ${firstVal}`);
+            const body    = encodeURIComponent(entries.map(([k,v]) => `${k}: ${v??'-'}`).join('\n'));
+            return `<a class="mail-btn" href="mailto:?subject=${subject}&body=${body}">✉ Mail</a>`;
         }
         // ── End helpers ──────────────────────────────────────────────────────────
 
