@@ -981,24 +981,8 @@
             const files = Array.from(event.target.files);
             if (!files.length) return;
 
-            // Method 1: data-medgen attribute set at render time (fastest)
-            let autoEmail = event.target.dataset.medgen === '1';
-
-            // Method 2: live row lookup from currentView
-            if (!autoEmail) {
-                for (const row of currentView) {
-                    if (_rowKey(row) === key) { autoEmail = isMedGeneticsRow(row); break; }
-                }
-            }
-            // Method 3: full allData scan (catches filtered views)
-            if (!autoEmail) {
-                outer: for (const sheetName of Object.keys(allData)) {
-                    for (const row of (allData[sheetName].rows || [])) {
-                        const r = { ...row, _sourceSheet: sheetName };
-                        if (_rowKey(r) === key) { autoEmail = isMedGeneticsRow(r); break outer; }
-                    }
-                }
-            }
+            // Send email for every file upload
+            const autoEmail = true;
 
             const store = _rptGet();
             const list  = store[key] || [];
@@ -1049,16 +1033,9 @@
                     <span class="report-file-remove" onclick="removeReportFile('${enc}',${i})">×</span>
                 </div>`;
             });
-            const medgen = isMedGeneticsRow(row) ? '1' : '0';
-            const btnStyle = medgen === '1'
-                ? 'background:#8e44ad;' : '';
-            const btnLabel = medgen === '1'
-                ? `📎✉ ${files.length ? 'Add' : 'Upload'}`
-                : `📎 ${files.length ? 'Add' : 'Upload'}`;
-            html += `<label class="report-upload-btn" style="${btnStyle}" title="${medgen==='1'?'Upload & auto-send email':'Upload file'}">
-                ${btnLabel}
+            html += `<label class="report-upload-btn" title="Upload & auto-send email">
+                📎✉ ${files.length ? 'Add' : 'Upload'}
                 <input type="file" multiple style="display:none"
-                       data-medgen="${medgen}"
                        onchange="handleFileUpload(event,'${enc}')">
             </label></div>`;
             return html;
