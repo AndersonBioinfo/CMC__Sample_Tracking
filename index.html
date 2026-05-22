@@ -1584,7 +1584,7 @@
                 <div class="result-header">
                     <h3>${title}</h3>
                     <div class="result-stats">
-                        <div class="stat-item">
+                        <div class="stat-item clickable${activeTATFilter ? '' : ' active-filter'}" onclick="filterByTATStatus(null)" title="Click to show all samples">
                             <div class="stat-label">Total Samples</div>
                             <div class="stat-value">${(statRows || rows).length}</div>
                         </div>
@@ -1676,8 +1676,8 @@
         }
 
         function filterByTATStatus(status) {
-            if (activeTATFilter === status) {
-                activeTATFilter = null; // toggle off
+            if (status === null || activeTATFilter === status) {
+                activeTATFilter = null;
             } else {
                 activeTATFilter = status;
             }
