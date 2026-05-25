@@ -1257,20 +1257,19 @@
                             'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY'
                         ]);
                         if (dept && (HAEM_GENTICS_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
-                            const fileList = files.map(f => f.name).join(', ');
                             const to = HAEM_GENTICS_DEPTS.has(dept)
                                 ? 'nandhananandhana1062.sse@saveetha.com'
                                 : 'jeevav936@gmail.com';
-                            const deptSuffix = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
-                            const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
-                            const greeting   = drMatch
-                                ? `Dear ${drMatch[1]},`
-                                : `Dear CMC- ${deptSuffix} lab team,`;
-                            sendEmailViaScript(key,
-                                to,
-                                '',
-                                'Regarding Whole Exome Reports',
-                                `${greeting}\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                            const deptSuffix  = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
+                            const drMatch     = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
+                            const greeting    = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC-${deptSuffix} team,`;
+                            const matchRow    = currentView.find(r => _rowKey(r) === key);
+                            const pName       = matchRow ? _getPatientName(matchRow) : '';
+                            const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
+                            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${pName} Whole Exome Sequencing (WES) data comprising 6 samples. The detailed results are provided in the attached Excel sheet for your reference.`;
+                            sendEmailViaScript(key, to, '',
+                                `Regarding ${pName} Whole Exome Reports`,
+                                `${greeting}\n\n${bodyCore}${signOff}`
                             );
                         }
                     }
@@ -1432,30 +1431,33 @@
                 'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY',
                 'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY'
             ]);
-            const dept = _deptGet()[key] || '';
+            const dept        = _deptGet()[key] || '';
+            const patientName = _getPatientName(row);
+            const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
+            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${patientName} Whole Exome Sequencing (WES) data comprising 6 samples. The detailed results are provided in the attached Excel sheet for your reference.`;
             let previewData;
             if (medGen) {
                 previewData = {
                     to: 'jeevav936@gmail.com', from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: 'Regarding Whole Exome Reports',
-                    body: `Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                    subject: `Regarding ${patientName} Whole Exome Reports`,
+                    body: `Dear CMC-Clinical Genetics team,\n\n${bodyCore}${signOff}`
                 };
             } else if (dept && (HAEM_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
                 const to = HAEM_DEPTS.has(dept) ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
                 const deptSuffix = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
                 const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
-                const greeting   = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC- ${deptSuffix} lab team,`;
+                const greeting   = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC-${deptSuffix} team,`;
                 previewData = {
                     to, from: 'andersonbioinfo@gmail.com', cc: '',
-                    subject: 'Regarding Whole Exome Reports',
-                    body: `${greeting}\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                    subject: `Regarding ${patientName} Whole Exome Reports`,
+                    body: `${greeting}\n\n${bodyCore}${signOff}`
                 };
             } else {
                 previewData = {
                     to: '', from: 'andersonbioinfo@gmail.com', cc: '',
-                    subject: 'Regarding Whole Exome Reports',
-                    body: `Greetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                    subject: `Regarding ${patientName} Whole Exome Reports`,
+                    body: `${bodyCore}${signOff}`
                 };
             }
             // Cache preview data so onclick just passes the key
@@ -1528,6 +1530,22 @@
 
         function closeMailPreview() {
             document.getElementById('mailPreviewModal').classList.remove('active');
+        }
+
+        function _getPatientName(row) {
+            for (const [k, v] of Object.entries(row)) {
+                if (k === '_sourceSheet') continue;
+                const kl = k.toLowerCase().replace(/[\s_]/g, '');
+                if ((kl === 'name' || kl === 'patientname') && String(v||'').trim())
+                    return String(v).trim();
+            }
+            for (const [k, v] of Object.entries(row)) {
+                if (k === '_sourceSheet') continue;
+                const kl = k.toLowerCase();
+                if (kl.includes('name') && !kl.includes('client') && !kl.includes('doctor') && String(v||'').trim())
+                    return String(v).trim();
+            }
+            return '';
         }
 
         // ── End helpers ──────────────────────────────────────────────────────────
