@@ -1054,11 +1054,21 @@
                             const to = HAEM_GENTICS_DEPTS.has(dept)
                                 ? 'nandhananandhana1062.sse@saveetha.com'
                                 : 'jeevav936@gmail.com';
+                            const DEPT_GREETING = {
+                                'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS':            'Dear CMC- Medical Genetics lab team,',
+                                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY':                'Dear CMC- Haematology lab team,',
+                                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice':      'Dear Dr. Eunice,',
+                                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji':       'Dear Dr. Shaji,',
+                                'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS':               'Dear CMC- Cytogenetics lab team,',
+                                'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY':    'Dear CMC- Molecular Endocrinology lab team,',
+                                'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY':                 'Dear CMC- Nephrology lab team,'
+                            };
+                            const greeting = DEPT_GREETING[dept] || 'Dear CMC lab team,';
                             sendEmailViaScript(key,
                                 to,
                                 '',
                                 'Regarding Whole Exome Reports',
-                                'Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs'
+                                `${greeting}\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
                             );
                         }
                     }
