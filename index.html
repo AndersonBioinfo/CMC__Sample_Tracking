@@ -878,8 +878,8 @@
         }
         .resend-btn:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(109,40,217,0.4); }
 
-        /* ── Mail action buttons (Preview / Edit) ─────────────── */
-        .mail-action-btns { display:flex; gap:4px; justify-content:center; margin-top:5px; flex-wrap:wrap; }
+        /* ── Mail preview button ───────────────────────────────── */
+        .mail-action-btns { display:flex; gap:4px; justify-content:center; margin-top:5px; }
         .mail-icon-btn {
             font-size:10px; padding:2px 8px; border:none; border-radius:5px; cursor:pointer;
             font-weight:600; transition: all 0.18s; display:inline-flex; align-items:center; gap:2px;
@@ -887,24 +887,29 @@
         }
         .mail-preview-btn { background:linear-gradient(135deg,#0891b2,#06b6d4); color:white; box-shadow:0 1px 5px rgba(8,145,178,0.35); }
         .mail-preview-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(8,145,178,0.5); filter:brightness(1.08); }
-        .mail-edit-btn { background:linear-gradient(135deg,#d97706,#f59e0b); color:white; box-shadow:0 1px 5px rgba(217,119,6,0.35); }
-        .mail-edit-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(217,119,6,0.5); filter:brightness(1.08); }
 
-        /* ── Mail preview modal ────────────────────────────────── */
+        /* ── Mail preview modal (editable fields) ──────────────── */
         .mp-field { display:flex; gap:0; margin-bottom:10px; align-items:flex-start; }
         .mp-label {
             flex-shrink:0; width:72px; font-weight:700; font-size:11px; text-transform:uppercase;
-            letter-spacing:0.5px; color:#0e7490; padding:8px 0 0;
+            letter-spacing:0.5px; color:#0e7490; padding:9px 0 0;
         }
-        .mp-value {
-            flex:1; background:#f0f9fb; border:1.5px solid #cce8ed; border-radius:8px;
-            padding:7px 11px; font-size:13px; color:#374151; word-break:break-word;
+        .mp-input {
+            flex:1; width:100%; background:#f0f9fb; border:1.5px solid #cce8ed; border-radius:8px;
+            padding:7px 11px; font-size:13px; color:#374151; font-family:inherit; box-sizing:border-box;
+            transition: border-color 0.18s, box-shadow 0.18s, background 0.18s; cursor:text;
         }
-        .mp-field-body { align-items:flex-start; }
-        .mp-body {
-            flex:1; background:#f0f9fb; border:1.5px solid #cce8ed; border-radius:8px;
-            padding:10px 12px; font-size:12px; color:#374151; white-space:pre-wrap;
-            line-height:1.6; font-family:inherit; margin:0; max-height:200px; overflow-y:auto;
+        .mp-input:focus {
+            outline:none; border-color:#0e7490; box-shadow:0 0 0 3px rgba(14,116,144,0.15); background:white;
+        }
+        .mp-body-input {
+            flex:1; width:100%; background:#f0f9fb; border:1.5px solid #cce8ed; border-radius:8px;
+            padding:10px 12px; font-size:12px; color:#374151; font-family:inherit; box-sizing:border-box;
+            line-height:1.6; resize:vertical; height:165px;
+            transition: border-color 0.18s, box-shadow 0.18s, background 0.18s; cursor:text;
+        }
+        .mp-body-input:focus {
+            outline:none; border-color:#0e7490; box-shadow:0 0 0 3px rgba(14,116,144,0.15); background:white;
         }
         .mp-sent-badge {
             display:inline-flex; align-items:center; gap:5px; background:#d1fae5;
@@ -994,11 +999,15 @@
                 <button class="close-btn" onclick="closeMailPreview()">Close</button>
             </div>
             <div style="padding:6px 0 0;">
-                <div id="mailPreviewSentBadge" style="display:none;" class="mp-sent-badge">✓ Mail already sent</div>
-                <div id="mailPreviewContent"></div>
+                <div id="mailPreviewSentBadge" style="display:none;" class="mp-sent-badge"></div>
+                <div class="mp-field"><span class="mp-label">To</span><input class="mp-input" id="mpTo" type="email" placeholder="recipient@example.com"></div>
+                <div class="mp-field"><span class="mp-label">From</span><input class="mp-input" id="mpFrom" type="email" placeholder="sender@example.com"></div>
+                <div class="mp-field"><span class="mp-label">CC</span><input class="mp-input" id="mpCC" type="text" placeholder="cc@example.com"></div>
+                <div class="mp-field"><span class="mp-label">Subject</span><input class="mp-input" id="mpSubject" type="text" placeholder="Subject"></div>
+                <div class="mp-field"><span class="mp-label">Body</span><textarea class="mp-body-input" id="mpBody"></textarea></div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
-                    <button class="email-cancel-btn" onclick="closeMailPreview()">Close</button>
-                    <button class="email-send-btn" id="mailPreviewEditBtn" style="background:linear-gradient(135deg,#d97706,#f59e0b);box-shadow:0 3px 12px rgba(217,119,6,0.35);">✏️ Edit &amp; Send</button>
+                    <button class="email-cancel-btn" onclick="closeMailPreview()">Cancel</button>
+                    <button class="email-send-btn" id="mailPreviewSendBtn">✉️ Send Email</button>
                 </div>
             </div>
         </div>
@@ -1432,7 +1441,6 @@
 
             const actionBtns = `<div class="mail-action-btns">
                 <button class="mail-icon-btn mail-preview-btn" onclick="openMailPreview('${encKey}')">👁 Preview</button>
-                <button class="mail-icon-btn mail-edit-btn" onclick='openEmailModal(${rowJson},"${encKey}")'>✏️ Edit</button>
             </div>`;
 
             if (sent) {
@@ -1462,8 +1470,7 @@
         function openMailPreview(encKey) {
             const cached = _mailPreviewCache[encKey];
             if (!cached) { alert('Preview data not available — try scrolling the table to reload.'); return; }
-            const { preview, sent, sentAt, rowJson } = cached;
-            const eh = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const { preview, sent, sentAt } = cached;
             const badge = document.getElementById('mailPreviewSentBadge');
             if (sent && sentAt) {
                 const t = new Date(sentAt);
@@ -1473,15 +1480,22 @@
             } else {
                 badge.style.display = 'none';
             }
-            document.getElementById('mailPreviewContent').innerHTML = `
-                <div class="mp-field"><span class="mp-label">To</span><span class="mp-value">${eh(preview.to)||'<em style="color:#9ca3af">Not set</em>'}</span></div>
-                <div class="mp-field"><span class="mp-label">From</span><span class="mp-value">${eh(preview.from)||'<em style="color:#9ca3af">Not set</em>'}</span></div>
-                <div class="mp-field"><span class="mp-label">CC</span><span class="mp-value">${eh(preview.cc)||'<em style="color:#9ca3af">None</em>'}</span></div>
-                <div class="mp-field"><span class="mp-label">Subject</span><span class="mp-value">${eh(preview.subject)}</span></div>
-                <div class="mp-field mp-field-body"><span class="mp-label">Body</span><pre class="mp-body">${eh(preview.body)}</pre></div>
-            `;
-            const row = JSON.parse(rowJson);
-            document.getElementById('mailPreviewEditBtn').onclick = () => { closeMailPreview(); openEmailModal(row, encKey); };
+            document.getElementById('mpTo').value      = preview.to      || '';
+            document.getElementById('mpFrom').value    = preview.from    || '';
+            document.getElementById('mpCC').value      = preview.cc      || '';
+            document.getElementById('mpSubject').value = preview.subject  || '';
+            document.getElementById('mpBody').value    = preview.body     || '';
+            const btn = document.getElementById('mailPreviewSendBtn');
+            btn.onclick = async () => {
+                const to      = document.getElementById('mpTo').value.trim();
+                const cc      = document.getElementById('mpCC').value.trim();
+                const subject = document.getElementById('mpSubject').value.trim();
+                const body    = document.getElementById('mpBody').value.trim();
+                btn.textContent = '⏳ Sending…'; btn.disabled = true;
+                const ok = await sendEmailViaScript(encKey, to, cc, subject, body);
+                btn.textContent = '✉️ Send Email'; btn.disabled = false;
+                if (ok) closeMailPreview();
+            };
             document.getElementById('mailPreviewModal').classList.add('active');
         }
 
