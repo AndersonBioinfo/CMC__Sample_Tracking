@@ -45,11 +45,22 @@ function doPost(e) {
 
 function sendEmailAction(params) {
   try {
-    const emailOptions = {
-      to:      params.to      || '',
-      cc:      params.cc      || '',
-      subject: params.subject || '(No Subject)',
-      body:    params.body    || ''
+    var rawBody = params.body || '';
+
+    // Convert plain text to HTML so Gmail never line-wraps or shows the [...] trimmer
+    var esc = function(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    };
+    var htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;">'
+      + esc(rawBody).replace(/\n/g, '<br>')
+      + '</div>';
+
+    var emailOptions = {
+      to:       params.to      || '',
+      cc:       params.cc      || '',
+      subject:  params.subject || '(No Subject)',
+      body:     rawBody,
+      htmlBody: htmlBody
     };
 
     if (params.attachments && params.attachments.length > 0) {
