@@ -45,12 +45,14 @@ function doPost(e) {
 
 function sendEmailAction(params) {
   try {
-    var rawBody = params.body || '';
+    // Strip double-newline before sign-off in plain text — prevents Gmail signature collapse
+    var rawBody = (params.body || '').replace(/\n\n(Thanks\b)/g, '\n$1');
 
     // Use client-provided htmlBody if available; otherwise build from plain text
     var htmlBody;
     if (params.htmlBody) {
-      htmlBody = params.htmlBody;
+      // Also strip double <br> before sign-off in HTML for the same reason
+      htmlBody = params.htmlBody.replace(/<br\s*\/?><br\s*\/?>(Thanks\b)/gi, '<br>$1');
     } else {
       var esc = function(s) {
         return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
