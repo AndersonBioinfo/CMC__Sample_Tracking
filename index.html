@@ -1266,7 +1266,7 @@
                             const matchRow    = currentView.find(r => _rowKey(r) === key);
                             const pName       = matchRow ? _getPatientName(matchRow) : '';
                             const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
-                            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${pName} Whole Exome Sequencing (WES) data comprising 6 samples. The detailed results are provided in the attached Excel sheet for your reference.`;
+                            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${pName} Whole Exome Sequencing (WES) data. The detailed results are provided in the attached Excel sheet for your reference.`;
                             sendEmailViaScript(key, to, '',
                                 `Regarding ${pName} Whole Exome Reports`,
                                 `${greeting}\n\n${bodyCore}${signOff}`
@@ -1434,7 +1434,7 @@
             const dept        = _deptGet()[key] || '';
             const patientName = _getPatientName(row);
             const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
-            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${patientName} Whole Exome Sequencing (WES) data comprising 6 samples. The detailed results are provided in the attached Excel sheet for your reference.`;
+            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${patientName} Whole Exome Sequencing (WES) data. The detailed results are provided in the attached Excel sheet for your reference.`;
             let previewData;
             if (medGen) {
                 previewData = {
