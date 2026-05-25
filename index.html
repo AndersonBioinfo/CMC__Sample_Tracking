@@ -250,6 +250,8 @@
         .sidebar-btn-config:hover { background: #8e44ad; }
         .sidebar-btn-refresh { background: #3498db; }
         .sidebar-btn-refresh:hover { background: #2980b9; }
+        .sidebar-btn-reset { background: #e74c3c; }
+        .sidebar-btn-reset:hover { background: #c0392b; }
 
         .tabs {
             display: flex;
@@ -747,6 +749,7 @@
 
         <button class="sidebar-btn sidebar-btn-config" onclick="showConfigModal()">⚙️ Column Mapping</button>
         <button class="sidebar-btn sidebar-btn-refresh" onclick="loadAllData(true)">🔄 Refresh Data</button>
+        <button class="sidebar-btn sidebar-btn-reset" onclick="resetLocalData()">🗑️ Reset Mail & Files</button>
 
         <div id="dataInfo" class="available-data-info" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -1109,6 +1112,15 @@
         const _MAIL_STORE = 'cmc_mail_sent';
         function _mailGet()  { try { return JSON.parse(localStorage.getItem(_MAIL_STORE)||'{}'); } catch { return {}; } }
         function _mailSave(s){ try { localStorage.setItem(_MAIL_STORE, JSON.stringify(s)); } catch {} }
+
+        function resetLocalData() {
+            if (!confirm('This will clear all uploaded report files, mail sent records, and department selections.\n\nContinue?')) return;
+            localStorage.removeItem(_RPT_STORE);
+            localStorage.removeItem(_MAIL_STORE);
+            localStorage.removeItem(_DEPT_STORE);
+            showToast('✓ Reset complete — files, mail records & departments cleared', 'success');
+            if (currentSheet) displaySheet(currentSheet);
+        }
 
         function showToast(message, type) {
             const el = document.createElement('div');
