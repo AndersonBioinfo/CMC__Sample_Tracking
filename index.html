@@ -1324,7 +1324,11 @@
             try {
                 const rawKey     = decodeURIComponent(rowKey);
                 const attachments = (_rptGet()[rawKey] || []).map(f => ({ name: f.name, dataUrl: f.dataUrl }));
-                const payload    = JSON.stringify({ action: 'sendEmail', to, cc, subject, body, attachments });
+                const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
+                    + esc(body).replace(/\n/g,'<br>')
+                    + '</div>';
+                const payload    = JSON.stringify({ action: 'sendEmail', to, cc, subject, body, htmlBody, attachments });
                 const res  = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain' },

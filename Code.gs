@@ -47,15 +47,18 @@ function sendEmailAction(params) {
   try {
     var rawBody = params.body || '';
 
-    // Convert plain text to HTML so Gmail never line-wraps or shows the [...] trimmer
-    var esc = function(s) {
-      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    };
-    var subjectLine = params.subject ? '<p style="margin:0 0 18px 0;font-size:14px;"><strong>Subject: ' + esc(params.subject) + '</strong></p>' : '';
-    var htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
-      + subjectLine
-      + esc(rawBody).replace(/\n/g, '<br>')
-      + '</div>';
+    // Use client-provided htmlBody if available; otherwise build from plain text
+    var htmlBody;
+    if (params.htmlBody) {
+      htmlBody = params.htmlBody;
+    } else {
+      var esc = function(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      };
+      htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
+        + esc(rawBody).replace(/\n/g, '<br>')
+        + '</div>';
+    }
 
     var emailOptions = {
       to:       params.to      || '',
