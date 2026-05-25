@@ -1326,7 +1326,7 @@
                 const attachments = (_rptGet()[rawKey] || []).map(f => ({ name: f.name, dataUrl: f.dataUrl }));
                 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
-                    + esc(body).replace(/\n/g,'<br>').replace(/<br>(Thanks\b)/g, '<div style="margin-top:16px;"></div>$1')
+                    + esc(body).replace(/\n/g,'<br>').replace(/<br>(Thanks\b)/g, '<p style="margin:1em 0 0 0;">&nbsp;</p>$1')
                     + '</div>';
                 const payload    = JSON.stringify({ action: 'sendEmail', to, cc, subject, body, htmlBody, attachments });
                 const res  = await fetch(APPS_SCRIPT_URL, {
