@@ -1350,18 +1350,23 @@
         async function sendEmailViaScript(rowKey, to, cc, subject, body) {
             showToast('📧 Sending email…', 'info');
             try {
-                const params = new URLSearchParams({
-                    action: 'sendEmail', to, cc, subject, body, _t: Date.now()
+                const rawKey     = decodeURIComponent(rowKey);
+                const attachments = (_rptGet()[rawKey] || []).map(f => ({ name: f.name, dataUrl: f.dataUrl }));
+                const payload    = JSON.stringify({ action: 'sendEmail', to, cc, subject, body, attachments });
+                const res  = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: payload,
+                    redirect: 'follow'
                 });
-                const res  = await fetch(`${APPS_SCRIPT_URL}?${params}`, { redirect: 'follow' });
                 const text = await res.text();
                 let json;
                 try { json = JSON.parse(text); } catch { json = { success: false, error: text }; }
                 if (json.success) {
                     const store = _mailGet();
-                    store[rowKey] = { sentAt: new Date().toISOString(), to };
+                    store[rawKey] = { sentAt: new Date().toISOString(), to };
                     _mailSave(store);
-                    showToast('✓ Email sent to ' + to, 'success');
+                    showToast('✓ Email sent to ' + to + (attachments.length ? ` with ${attachments.length} attachment(s)` : ''), 'success');
                     setTimeout(() => displaySheet(currentSheet), 300);
                     return true;
                 }

@@ -20,24 +20,48 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  if (action === 'sendEmail') {
-    return ContentService.createTextOutput(JSON.stringify(sendEmailAction(e.parameter)))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
   return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid action' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function doPost(e) {
+  try {
+    const data   = JSON.parse(e.postData.contents);
+    const action = data.action;
+
+    if (action === 'sendEmail') {
+      return ContentService.createTextOutput(JSON.stringify(sendEmailAction(data)))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid action' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('doPost error: ' + err.message);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function sendEmailAction(params) {
   try {
-    MailApp.sendEmail({
+    const emailOptions = {
       to:      params.to      || '',
       cc:      params.cc      || '',
       subject: params.subject || '(No Subject)',
       body:    params.body    || ''
-    });
-    Logger.log('Email sent to: ' + params.to);
+    };
+
+    if (params.attachments && params.attachments.length > 0) {
+      emailOptions.attachments = params.attachments.map(function(file) {
+        var match = file.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!match) return null;
+        return Utilities.newBlob(Utilities.base64Decode(match[2]), match[1], file.name);
+      }).filter(Boolean);
+    }
+
+    MailApp.sendEmail(emailOptions);
+    Logger.log('Email sent to: ' + params.to + ' with ' + (params.attachments ? params.attachments.length : 0) + ' attachment(s)');
     return { success: true };
   } catch (e) {
     Logger.log('sendEmailAction error: ' + e.message);
