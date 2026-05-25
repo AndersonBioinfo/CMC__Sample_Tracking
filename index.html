@@ -1000,8 +1000,8 @@
             </div>
             <div style="padding:6px 0 0;">
                 <div id="mailPreviewSentBadge" style="display:none;" class="mp-sent-badge"></div>
-                <div class="mp-field"><span class="mp-label">To</span><input class="mp-input" id="mpTo" type="email" placeholder="recipient@example.com"></div>
                 <div class="mp-field"><span class="mp-label">From</span><input class="mp-input" id="mpFrom" type="email" placeholder="sender@example.com"></div>
+                <div class="mp-field"><span class="mp-label">To</span><input class="mp-input" id="mpTo" type="email" placeholder="recipient@example.com"></div>
                 <div class="mp-field"><span class="mp-label">CC</span><input class="mp-input" id="mpCC" type="text" placeholder="cc@example.com"></div>
                 <div class="mp-field"><span class="mp-label">Subject</span><input class="mp-input" id="mpSubject" type="text" placeholder="Subject"></div>
                 <div class="mp-field"><span class="mp-label">Body</span><textarea class="mp-body-input" id="mpBody"></textarea></div>
@@ -1267,7 +1267,7 @@
                             const pName       = matchRow ? _getPatientName(matchRow) : '';
                             const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
                             const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${pName} Whole Exome Sequencing (WES) data. The detailed results are provided in the attached Excel sheet for your reference.`;
-                            sendEmailViaScript(key, to, '',
+                            sendEmailViaScript(key, to, 'snandhana2011@gmail.com, nandhanas129@gmail.com',
                                 `Regarding ${pName} Whole Exome Reports`,
                                 `${greeting}\n\n${bodyCore}${signOff}`
                             );
@@ -1449,13 +1449,15 @@
                 const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
                 const greeting   = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC-${deptSuffix} team,`;
                 previewData = {
-                    to, from: 'andersonbioinfo@gmail.com', cc: '',
+                    to, from: 'andersonbioinfo@gmail.com',
+                    cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
                     subject: `Regarding ${patientName} Whole Exome Reports`,
                     body: `${greeting}\n\n${bodyCore}${signOff}`
                 };
             } else {
                 previewData = {
-                    to: '', from: 'andersonbioinfo@gmail.com', cc: '',
+                    to: '', from: 'andersonbioinfo@gmail.com',
+                    cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
                     subject: `Regarding ${patientName} Whole Exome Reports`,
                     body: `${bodyCore}${signOff}`
                 };
