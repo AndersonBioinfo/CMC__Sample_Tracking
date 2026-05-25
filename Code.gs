@@ -51,7 +51,9 @@ function sendEmailAction(params) {
     var esc = function(s) {
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     };
-    var htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;">'
+    var subjectLine = params.subject ? '<p style="margin:0 0 18px 0;font-size:14px;"><strong>Subject: ' + esc(params.subject) + '</strong></p>' : '';
+    var htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
+      + subjectLine
       + esc(rawBody).replace(/\n/g, '<br>')
       + '</div>';
 
