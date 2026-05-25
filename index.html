@@ -1268,7 +1268,7 @@
                             const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
                             const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${pName} Whole Exome Sequencing (WES) data. The detailed results are provided in the attached Excel sheet for your reference.`;
                             sendEmailViaScript(key, to, 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                                `Regarding ${pName} Whole Exome Reports`,
+                                `Regarding ${pName} Whole Exome Sequencing Results`,
                                 `${greeting}\n\n${bodyCore}${signOff}`
                             );
                         }
@@ -1440,7 +1440,7 @@
                 previewData = {
                     to: 'jeevav936@gmail.com', from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: `Regarding ${patientName} Whole Exome Reports`,
+                    subject: `Regarding ${patientName} Whole Exome Sequencing Results`,
                     body: `Dear CMC-Clinical Genetics team,\n\n${bodyCore}${signOff}`
                 };
             } else if (dept && (HAEM_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
@@ -1451,14 +1451,14 @@
                 previewData = {
                     to, from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: `Regarding ${patientName} Whole Exome Reports`,
+                    subject: `Regarding ${patientName} Whole Exome Sequencing Results`,
                     body: `${greeting}\n\n${bodyCore}${signOff}`
                 };
             } else {
                 previewData = {
                     to: '', from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: `Regarding ${patientName} Whole Exome Reports`,
+                    subject: `Regarding ${patientName} Whole Exome Sequencing Results`,
                     body: `${bodyCore}${signOff}`
                 };
             }
