@@ -1326,7 +1326,7 @@
                 const attachments = (_rptGet()[rawKey] || []).map(f => ({ name: f.name, dataUrl: f.dataUrl }));
                 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
-                    + esc(body).replace(/\n/g,'<br>').replace(/(<br><br>)(Thanks\b)/g, '$1​$2')
+                    + esc(body).replace(/\n/g,'<br>')
                     + '</div>';
                 const payload    = JSON.stringify({ action: 'sendEmail', to, cc, subject, body, htmlBody, attachments });
                 const res  = await fetch(APPS_SCRIPT_URL, {
@@ -1415,7 +1415,7 @@
             const dept        = _deptGet()[key] || '';
             const patientName = _getPatientName(row);
             const subject     = `Regarding Whole Exome Sequencing Results`;
-            const signOff     = `\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
+            const signOff     = `\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
             // Patient name placed AFTER "WES results" to prevent Gmail splitting "Whole Exome | Sequencing"
             const bodyCore    = `Greetings of the day,\n\nPlease find the Whole Exome Sequencing (WES) results of ${patientName}. The detailed results are provided in the attached Excel sheet for your reference.`;
             const buildBody   = (greeting) => `Subject: ${subject}\n\n${greeting ? greeting + '\n\n' : ''}${bodyCore}${signOff}`;
