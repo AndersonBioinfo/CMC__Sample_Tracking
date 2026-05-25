@@ -1768,13 +1768,12 @@
 
             currentView = displayRows;
             if (displayRows.length === 0) {
+                const emptyMsg = activeTATFilter === 'Overdue'   ? '🎉 No overdue samples' :
+                                 activeTATFilter === 'Ongoing'   ? '✅ No ongoing samples — all completed' :
+                                 activeTATFilter === 'Released'  ? 'No completed samples yet' :
+                                                                   'No samples found';
                 document.getElementById('contentArea').innerHTML = `
-                    <div class="no-data">
-                        No matching samples in <strong>${sheetName}</strong><br>
-                        <button onclick="showAllFilteredMonths()" style="margin-top:15px;padding:10px 24px;background:#3498db;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;">
-                            Show All Months
-                        </button>
-                    </div>`;
+                    <div class="no-data">${emptyMsg}</div>`;
             } else {
                 renderTable(displayRows, baseTitle, sheetData.headers, statRows);
             }
