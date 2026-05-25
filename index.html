@@ -1243,35 +1243,7 @@
                         store[key] = list;
                         _rptSave(store);
                         displaySheet(currentSheet);
-                        // Auto-email based on chosen department
-                        const dept = _deptGet()[key];
-                        const HAEM_GENTICS_DEPTS = new Set([
-                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
-                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
-                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
-                            'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
-                        ]);
-                        const JEEVA_DEPTS = new Set([
-                            'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS',
-                            'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY',
-                            'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY'
-                        ]);
-                        if (dept && (HAEM_GENTICS_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
-                            const to = HAEM_GENTICS_DEPTS.has(dept)
-                                ? 'nandhananandhana1062.sse@saveetha.com'
-                                : 'jeevav936@gmail.com';
-                            const deptSuffix  = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
-                            const drMatch     = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
-                            const greeting    = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC-${deptSuffix} team,`;
-                            const matchRow    = currentView.find(r => _rowKey(r) === key);
-                            const pName       = matchRow ? _getPatientName(matchRow) : '';
-                            const signOff     = `\n\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
-                            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${pName} Whole Exome Sequencing (WES) data. The detailed results are provided in the attached Excel sheet for your reference.`;
-                            sendEmailViaScript(key, to, 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                                `Regarding Whole Exome Sequencing Results`,
-                                `${greeting}\n\n${bodyCore}${signOff}`
-                            );
-                        }
+                        showToast(`✓ ${files.length} file(s) uploaded — use Preview to review and send`, 'success');
                     }
                 };
                 reader.readAsDataURL(file);
@@ -1302,7 +1274,7 @@
                     <span class="report-file-remove" onclick="removeReportFile('${enc}',${i})">×</span>
                 </div>`;
             });
-            html += `<label class="report-upload-btn" title="Upload & auto-send email">
+            html += `<label class="report-upload-btn" title="Upload report files">
                 📎✉ ${files.length ? 'Add' : 'Upload'}
                 <input type="file" multiple style="display:none"
                        onchange="handleFileUpload(event,'${enc}')">
