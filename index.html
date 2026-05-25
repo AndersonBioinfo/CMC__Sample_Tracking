@@ -1511,8 +1511,23 @@
             } else {
                 badge.style.display = 'none';
             }
-            document.getElementById('mpTo').value      = preview.to      || '';
+            // Recalculate TO live from current dept in case it was selected after last render
+            let toEmail = preview.to;
+            if (!toEmail) {
+                const rawKey = decodeURIComponent(encKey);
+                const dept   = _deptGet()[rawKey] || '';
+                if (dept) {
+                    const isHaem = [
+                        'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
+                        'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
+                        'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
+                        'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
+                    ].includes(dept);
+                    toEmail = isHaem ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
+                }
+            }
             document.getElementById('mpFrom').value    = preview.from    || '';
+            document.getElementById('mpTo').value      = toEmail         || '';
             document.getElementById('mpCC').value      = preview.cc      || '';
             document.getElementById('mpSubject').value = preview.subject  || '';
             document.getElementById('mpBody').value    = preview.body     || '';
