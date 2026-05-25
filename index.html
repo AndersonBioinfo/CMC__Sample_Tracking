@@ -1377,15 +1377,13 @@
         }
 
         function openEmailModal(row, rowKey) {
-            const medGen = row && isMedGeneticsRow(row);
-            document.getElementById('emailTo').value      = medGen ? 'jeevav936@gmail.com' : '';
-            document.getElementById('emailFrom').value    = medGen ? 'andersonbioinfo@gmail.com' : '';
-            document.getElementById('emailCC').value      = medGen ? 'snandhana2011@gmail.com, nandhanas129@gmail.com' : '';
-            document.getElementById('emailSubject').value = medGen ? 'Regarding Whole Exome Reports'
-                : row ? `[${row._sourceSheet||''}] Report` : '';
-            document.getElementById('emailBody').value    = medGen
-                ? `Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
-                : '';
+            const cached = rowKey ? _mailPreviewCache[rowKey] : null;
+            const p = cached ? cached.preview : null;
+            document.getElementById('emailTo').value      = p ? p.to      : '';
+            document.getElementById('emailFrom').value    = p ? p.from    : '';
+            document.getElementById('emailCC').value      = p ? p.cc      : '';
+            document.getElementById('emailSubject').value = p ? p.subject : '';
+            document.getElementById('emailBody').value    = p ? p.body    : '';
             document.getElementById('emailModal').dataset.rowKey = rowKey || '';
             document.getElementById('emailModal').classList.add('active');
         }
@@ -1422,20 +1420,49 @@
             const entries = Object.entries(row).filter(([k]) => k !== '_sourceSheet');
             const firstVal= entries.length ? String(entries[0][1]||'').trim() : '';
 
-            // Cache preview data so onclick just passes the key
-            _mailPreviewCache[encKey] = {
-                sent: !!sent,
-                sentAt: sent ? sent.sentAt : null,
-                preview: medGen ? {
+            // Build dept-aware email template (same logic as handleFileUpload auto-send)
+            const HAEM_DEPTS = new Set([
+                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
+                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
+                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
+                'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
+            ]);
+            const JEEVA_DEPTS = new Set([
+                'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS',
+                'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY',
+                'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY'
+            ]);
+            const dept = _deptGet()[key] || '';
+            let previewData;
+            if (medGen) {
+                previewData = {
                     to: 'jeevav936@gmail.com', from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
                     subject: 'Regarding Whole Exome Reports',
                     body: `Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
-                } : {
-                    to: '', from: '', cc: '',
-                    subject: `[${sheet}] Report: ${firstVal}`,
-                    body: entries.map(([k,v]) => `${k}: ${v??'-'}`).join('\n')
-                },
+                };
+            } else if (dept && (HAEM_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
+                const to = HAEM_DEPTS.has(dept) ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
+                const deptSuffix = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
+                const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
+                const greeting   = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC- ${deptSuffix} lab team,`;
+                previewData = {
+                    to, from: 'andersonbioinfo@gmail.com', cc: '',
+                    subject: 'Regarding Whole Exome Reports',
+                    body: `${greeting}\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                };
+            } else {
+                previewData = {
+                    to: '', from: 'andersonbioinfo@gmail.com', cc: '',
+                    subject: 'Regarding Whole Exome Reports',
+                    body: `Greetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                };
+            }
+            // Cache preview data so onclick just passes the key
+            _mailPreviewCache[encKey] = {
+                sent: !!sent,
+                sentAt: sent ? sent.sentAt : null,
+                preview: previewData,
                 rowJson
             };
 
