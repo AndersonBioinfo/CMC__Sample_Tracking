@@ -15,10 +15,24 @@
 
         body {
             font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 40%, #e8f5e9 100%);
+            background: linear-gradient(145deg, #c8e6ef 0%, #d4eef8 30%, #cce8f0 60%, #b8dce8 100%);
             display: flex;
             height: 100vh;
             overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 65% 55% at 12% 18%, rgba(8,145,178,0.28) 0%, transparent 65%),
+                radial-gradient(ellipse 55% 45% at 88% 72%, rgba(14,116,144,0.22) 0%, transparent 65%),
+                radial-gradient(ellipse 45% 55% at 55% 90%, rgba(6,182,212,0.18) 0%, transparent 65%),
+                radial-gradient(ellipse 35% 35% at 75% 15%, rgba(15,76,90,0.15) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .sidebar {
@@ -863,6 +877,40 @@
             transition: all 0.18s; display:inline-block;
         }
         .resend-btn:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(109,40,217,0.4); }
+
+        /* ── Mail action buttons (Preview / Edit) ─────────────── */
+        .mail-action-btns { display:flex; gap:4px; justify-content:center; margin-top:5px; flex-wrap:wrap; }
+        .mail-icon-btn {
+            font-size:10px; padding:2px 8px; border:none; border-radius:5px; cursor:pointer;
+            font-weight:600; transition: all 0.18s; display:inline-flex; align-items:center; gap:2px;
+            white-space:nowrap;
+        }
+        .mail-preview-btn { background:linear-gradient(135deg,#0891b2,#06b6d4); color:white; box-shadow:0 1px 5px rgba(8,145,178,0.35); }
+        .mail-preview-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(8,145,178,0.5); filter:brightness(1.08); }
+        .mail-edit-btn { background:linear-gradient(135deg,#d97706,#f59e0b); color:white; box-shadow:0 1px 5px rgba(217,119,6,0.35); }
+        .mail-edit-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(217,119,6,0.5); filter:brightness(1.08); }
+
+        /* ── Mail preview modal ────────────────────────────────── */
+        .mp-field { display:flex; gap:0; margin-bottom:10px; align-items:flex-start; }
+        .mp-label {
+            flex-shrink:0; width:72px; font-weight:700; font-size:11px; text-transform:uppercase;
+            letter-spacing:0.5px; color:#0e7490; padding:8px 0 0;
+        }
+        .mp-value {
+            flex:1; background:#f0f9fb; border:1.5px solid #cce8ed; border-radius:8px;
+            padding:7px 11px; font-size:13px; color:#374151; word-break:break-word;
+        }
+        .mp-field-body { align-items:flex-start; }
+        .mp-body {
+            flex:1; background:#f0f9fb; border:1.5px solid #cce8ed; border-radius:8px;
+            padding:10px 12px; font-size:12px; color:#374151; white-space:pre-wrap;
+            line-height:1.6; font-family:inherit; margin:0; max-height:200px; overflow-y:auto;
+        }
+        .mp-sent-badge {
+            display:inline-flex; align-items:center; gap:5px; background:#d1fae5;
+            border:1px solid #6ee7b7; border-radius:6px; padding:4px 10px;
+            font-size:11px; font-weight:700; color:#065f46; margin-bottom:12px;
+        }
     </style>
 </head>
 <body>
@@ -938,6 +986,24 @@
         </div>
     </div>
 
+    <!-- Mail Preview Modal -->
+    <div id="mailPreviewModal" class="modal">
+        <div class="modal-content" style="max-width:640px;">
+            <div class="modal-header">
+                <h2>👁️ Mail Preview</h2>
+                <button class="close-btn" onclick="closeMailPreview()">Close</button>
+            </div>
+            <div style="padding:6px 0 0;">
+                <div id="mailPreviewSentBadge" style="display:none;" class="mp-sent-badge">✓ Mail already sent</div>
+                <div id="mailPreviewContent"></div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+                    <button class="email-cancel-btn" onclick="closeMailPreview()">Close</button>
+                    <button class="email-send-btn" id="mailPreviewEditBtn" style="background:linear-gradient(135deg,#d97706,#f59e0b);box-shadow:0 3px 12px rgba(217,119,6,0.35);">✏️ Edit &amp; Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Email Compose Modal -->
     <div id="emailModal" class="modal">
         <div class="modal-content" style="max-width:660px;">
@@ -988,6 +1054,7 @@
         let activeFilterFn = null;
         let activeFilterLabel = '';
         let activeTATFilter = null;
+        const _mailPreviewCache = {};
 
         // Column mapping patterns - will auto-detect from actual headers
         const COLUMN_PATTERNS = {
@@ -1337,32 +1404,91 @@
         }
 
         function renderMailCell(row) {
-            const key   = _rowKey(row);
-            const sent  = _mailGet()[key];
+            const key     = _rowKey(row);
+            const sent    = _mailGet()[key];
+            const encKey  = encodeURIComponent(key);
+            const medGen  = isMedGeneticsRow(row);
+            const rowJson = JSON.stringify({clientName: row.clientName||'', _sourceSheet: row._sourceSheet||''});
+            const sheet   = row._sourceSheet || currentSheet;
+            const entries = Object.entries(row).filter(([k]) => k !== '_sourceSheet');
+            const firstVal= entries.length ? String(entries[0][1]||'').trim() : '';
+
+            // Cache preview data so onclick just passes the key
+            _mailPreviewCache[encKey] = {
+                sent: !!sent,
+                sentAt: sent ? sent.sentAt : null,
+                preview: medGen ? {
+                    to: 'jeevav936@gmail.com', from: 'andersonbioinfo@gmail.com',
+                    cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
+                    subject: 'Regarding Whole Exome Reports',
+                    body: `Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs`
+                } : {
+                    to: '', from: '', cc: '',
+                    subject: `[${sheet}] Report: ${firstVal}`,
+                    body: entries.map(([k,v]) => `${k}: ${v??'-'}`).join('\n')
+                },
+                rowJson
+            };
+
+            const actionBtns = `<div class="mail-action-btns">
+                <button class="mail-icon-btn mail-preview-btn" onclick="openMailPreview('${encKey}')">👁 Preview</button>
+                <button class="mail-icon-btn mail-edit-btn" onclick='openEmailModal(${rowJson},"${encKey}")'>✏️ Edit</button>
+            </div>`;
+
             if (sent) {
                 const t = new Date(sent.sentAt);
                 const label = `${t.getDate().toString().padStart(2,'0')}/${(t.getMonth()+1).toString().padStart(2,'0')} ${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}`;
-                const encKey = encodeURIComponent(key);
-                const rowJson = JSON.stringify({clientName: row.clientName||'', _sourceSheet: row._sourceSheet||''});
                 return `<div class="mail-sent-wrap">
                     <span class="mail-sent-label">✓ Mail Sent</span>
                     <div class="mail-sent-time">${label}</div>
                     <button onclick='openEmailModal(${rowJson},"${encKey}")' class="resend-btn">Resend</button>
+                    ${actionBtns}
                 </div>`;
             }
-            if (isMedGeneticsRow(row)) {
-                const rowJson = JSON.stringify({clientName: row.clientName||'', _sourceSheet: row._sourceSheet||''});
-                const encKey  = encodeURIComponent(key);
-                return `<button class="mail-btn" style="background:#8e44ad;"
-                    onclick='openEmailModal(${rowJson},"${encKey}")'>✉ Mail</button>`;
+            if (medGen) {
+                return `<div style="text-align:center">
+                    <button class="mail-btn" style="background:#8e44ad;"
+                        onclick='openEmailModal(${rowJson},"${encKey}")'>✉ Mail</button>
+                    ${actionBtns}
+                </div>`;
             }
-            const sheet   = row._sourceSheet || currentSheet;
-            const entries = Object.entries(row).filter(([k]) => k !== '_sourceSheet');
-            const firstVal= entries.length ? String(entries[0][1]||'').trim() : '';
-            const subject = encodeURIComponent(`[${sheet}] Report: ${firstVal}`);
-            const body    = encodeURIComponent(entries.map(([k,v]) => `${k}: ${v??'-'}`).join('\n'));
-            return `<a class="mail-btn" href="mailto:?subject=${subject}&body=${body}">✉ Mail</a>`;
+            const subjectEnc = encodeURIComponent(`[${sheet}] Report: ${firstVal}`);
+            const bodyEnc    = encodeURIComponent(entries.map(([k,v]) => `${k}: ${v??'-'}`).join('\n'));
+            return `<div style="text-align:center">
+                <a class="mail-btn" href="mailto:?subject=${subjectEnc}&body=${bodyEnc}">✉ Mail</a>
+                ${actionBtns}
+            </div>`;
         }
+        function openMailPreview(encKey) {
+            const cached = _mailPreviewCache[encKey];
+            if (!cached) { alert('Preview data not available — try scrolling the table to reload.'); return; }
+            const { preview, sent, sentAt, rowJson } = cached;
+            const eh = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const badge = document.getElementById('mailPreviewSentBadge');
+            if (sent && sentAt) {
+                const t = new Date(sentAt);
+                const ts = `${t.getDate().toString().padStart(2,'0')}/${(t.getMonth()+1).toString().padStart(2,'0')} ${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}`;
+                badge.textContent = `✓ Mail sent on ${ts}`;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+            document.getElementById('mailPreviewContent').innerHTML = `
+                <div class="mp-field"><span class="mp-label">To</span><span class="mp-value">${eh(preview.to)||'<em style="color:#9ca3af">Not set</em>'}</span></div>
+                <div class="mp-field"><span class="mp-label">From</span><span class="mp-value">${eh(preview.from)||'<em style="color:#9ca3af">Not set</em>'}</span></div>
+                <div class="mp-field"><span class="mp-label">CC</span><span class="mp-value">${eh(preview.cc)||'<em style="color:#9ca3af">None</em>'}</span></div>
+                <div class="mp-field"><span class="mp-label">Subject</span><span class="mp-value">${eh(preview.subject)}</span></div>
+                <div class="mp-field mp-field-body"><span class="mp-label">Body</span><pre class="mp-body">${eh(preview.body)}</pre></div>
+            `;
+            const row = JSON.parse(rowJson);
+            document.getElementById('mailPreviewEditBtn').onclick = () => { closeMailPreview(); openEmailModal(row, encKey); };
+            document.getElementById('mailPreviewModal').classList.add('active');
+        }
+
+        function closeMailPreview() {
+            document.getElementById('mailPreviewModal').classList.remove('active');
+        }
+
         // ── End helpers ──────────────────────────────────────────────────────────
 
         function detectColumnMappings() {
