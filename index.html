@@ -1410,15 +1410,18 @@
             ]);
             const dept        = _deptGet()[key] || '';
             const patientName = _getPatientName(row);
+            const subject     = `Regarding Whole Exome Sequencing Results`;
             const signOff     = `\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics`;
-            const bodyCore    = `Greetings of the day,\n\nPlease find the results of the ${patientName} Whole Exome Sequencing (WES) data. The detailed results are provided in the attached Excel sheet for your reference.`;
+            // Patient name placed AFTER "WES results" to prevent Gmail splitting "Whole Exome | Sequencing"
+            const bodyCore    = `Greetings of the day,\n\nPlease find the Whole Exome Sequencing (WES) results of ${patientName}. The detailed results are provided in the attached Excel sheet for your reference.`;
+            const buildBody   = (greeting) => `Subject: ${subject}\n\n${greeting ? greeting + '\n\n' : ''}${bodyCore}${signOff}`;
             let previewData;
             if (medGen) {
                 previewData = {
                     to: 'jeevav936@gmail.com', from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: `Regarding Whole Exome Sequencing Results`,
-                    body: `Dear CMC-Clinical Genetics team,\n\n${bodyCore}${signOff}`
+                    subject,
+                    body: buildBody(`Dear CMC-Clinical Genetics team,`)
                 };
             } else if (dept && (HAEM_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
                 const to = HAEM_DEPTS.has(dept) ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
@@ -1428,15 +1431,15 @@
                 previewData = {
                     to, from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: `Regarding Whole Exome Sequencing Results`,
-                    body: `${greeting}\n\n${bodyCore}${signOff}`
+                    subject,
+                    body: buildBody(greeting)
                 };
             } else {
                 previewData = {
                     to: '', from: 'andersonbioinfo@gmail.com',
                     cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                    subject: `Regarding Whole Exome Sequencing Results`,
-                    body: `${bodyCore}${signOff}`
+                    subject,
+                    body: buildBody('')
                 };
             }
             // Cache preview data so onclick just passes the key
