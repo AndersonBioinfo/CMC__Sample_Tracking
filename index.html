@@ -1036,15 +1036,29 @@
                         store[key] = list;
                         _rptSave(store);
                         displaySheet(currentSheet);
-                        // Auto-email only when department is CYTOGENETICS
+                        // Auto-email based on chosen department
                         const dept = _deptGet()[key];
-                        if (dept === 'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS') {
+                        const HAEM_GENTICS_DEPTS = new Set([
+                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
+                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
+                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
+                            'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
+                        ]);
+                        const JEEVA_DEPTS = new Set([
+                            'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS',
+                            'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY',
+                            'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY'
+                        ]);
+                        if (dept && (HAEM_GENTICS_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
                             const fileList = files.map(f => f.name).join(', ');
+                            const to = HAEM_GENTICS_DEPTS.has(dept)
+                                ? 'nandhananandhana1062.sse@saveetha.com'
+                                : 'jeevav936@gmail.com';
                             sendEmailViaScript(key,
-                                'jeevav936@gmail.com',
+                                to,
                                 '',
-                                '[CMC Cytogenetics] Report Uploaded',
-                                `Dear CMC – Cytogenetics lab team,\n\nGreetings of the day,\n\nA new report file has been uploaded for a Cytogenetics sample in the Anderson Sample Tracking system. Please review the report at your earliest convenience.\n\nFile(s) uploaded: ${fileList}\n\nThanks and Regards\nAnderson Diagnostics and Labs`
+                                `[CMC] Report Uploaded – ${dept}`,
+                                `Dear CMC lab team,\n\nGreetings of the day,\n\nA new report file has been uploaded for a sample under the following department:\n\nDepartment: ${dept}\nFile(s) uploaded: ${fileList}\n\nPlease review the report at your earliest convenience.\n\nThanks and Regards\nAnderson Diagnostics and Labs`
                             );
                         }
                     }
