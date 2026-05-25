@@ -1054,16 +1054,11 @@
                             const to = HAEM_GENTICS_DEPTS.has(dept)
                                 ? 'nandhananandhana1062.sse@saveetha.com'
                                 : 'jeevav936@gmail.com';
-                            const DEPT_GREETING = {
-                                'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS':            'Dear CMC- Medical Genetics lab team,',
-                                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY':                'Dear CMC- Haematology lab team,',
-                                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice':      'Dear Dr. Eunice,',
-                                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji':       'Dear Dr. Shaji,',
-                                'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS':               'Dear CMC- Cytogenetics lab team,',
-                                'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY':    'Dear CMC- Molecular Endocrinology lab team,',
-                                'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY':                 'Dear CMC- Nephrology lab team,'
-                            };
-                            const greeting = DEPT_GREETING[dept] || 'Dear CMC lab team,';
+                            const deptSuffix = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
+                            const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
+                            const greeting   = drMatch
+                                ? `Dear ${drMatch[1]},`
+                                : `Dear CMC- ${deptSuffix} lab team,`;
                             sendEmailViaScript(key,
                                 to,
                                 '',
