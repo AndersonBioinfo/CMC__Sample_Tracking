@@ -1773,6 +1773,16 @@
                                  activeTATFilter === 'Released'  ? 'No completed samples yet' :
                                                                    'No samples found';
                 document.getElementById('contentArea').innerHTML = `
+                    <div class="result-header">
+                        <h3>${baseTitle}</h3>
+                        <div class="result-stats">
+                            <div class="stat-item clickable${activeTATFilter ? '' : ' active-filter'}" onclick="filterByTATStatus(null)" title="Click to show all samples">
+                                <div class="stat-label">Total Samples</div>
+                                <div class="stat-value">${statRows.length}</div>
+                            </div>
+                            ${getTATStats(statRows)}
+                        </div>
+                    </div>
                     <div class="no-data">${emptyMsg}</div>`;
             } else {
                 renderTable(displayRows, baseTitle, sheetData.headers, statRows);
