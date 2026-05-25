@@ -14,14 +14,35 @@ const CONFIG = {
 
 function doGet(e) {
   const action = e.parameter.action;
-  
+
   if (action === 'getAllData') {
     return ContentService.createTextOutput(JSON.stringify(getAllData()))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  
+
+  if (action === 'sendEmail') {
+    return ContentService.createTextOutput(JSON.stringify(sendEmailAction(e.parameter)))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid action' }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function sendEmailAction(params) {
+  try {
+    MailApp.sendEmail({
+      to:      params.to      || '',
+      cc:      params.cc      || '',
+      subject: params.subject || '(No Subject)',
+      body:    params.body    || ''
+    });
+    Logger.log('Email sent to: ' + params.to);
+    return { success: true };
+  } catch (e) {
+    Logger.log('sendEmailAction error: ' + e.message);
+    return { success: false, error: e.message };
+  }
 }
 
 /**

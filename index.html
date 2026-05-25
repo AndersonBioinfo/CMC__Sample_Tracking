@@ -1025,9 +1025,6 @@
             const files = Array.from(event.target.files);
             if (!files.length) return;
 
-            // Send email for every file upload
-            const autoEmail = true;
-
             const store = _rptGet();
             const list  = store[key] || [];
             let done = 0;
@@ -1039,12 +1036,15 @@
                         store[key] = list;
                         _rptSave(store);
                         displaySheet(currentSheet);
-                        if (autoEmail) {
+                        // Auto-email only when department is CYTOGENETICS
+                        const dept = _deptGet()[key];
+                        if (dept === 'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS') {
+                            const fileList = files.map(f => f.name).join(', ');
                             sendEmailViaScript(key,
                                 'jeevav936@gmail.com',
-                                'snandhana2011@gmail.com, nandhanas129@gmail.com',
-                                'Regarding Whole Exome Reports',
-                                'Dear CMC- Clinical Genetics lab team,\n\nGreetings of the day,\n\nWe are sharing the Whole Exome Sequencing (WES) reports for the one case as attachments in this email for your reference.\n\nThanks and Regards\nDr. S. Muthukumaran PhD\nAnderson Diagnostics and labs'
+                                '',
+                                '[CMC Cytogenetics] Report Uploaded',
+                                `Dear CMC – Cytogenetics lab team,\n\nGreetings of the day,\n\nA new report file has been uploaded for a Cytogenetics sample in the Anderson Sample Tracking system. Please review the report at your earliest convenience.\n\nFile(s) uploaded: ${fileList}\n\nThanks and Regards\nAnderson Diagnostics and Labs`
                             );
                         }
                     }
