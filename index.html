@@ -1274,7 +1274,7 @@
 
         const DEPT_OPTIONS = [
             'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS',
-            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
+            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali',
             'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
             'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
             'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS',
@@ -1477,7 +1477,7 @@
 
             // Build dept-aware email template (same logic as handleFileUpload auto-send)
             const HAEM_DEPTS = new Set([
-                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
+                'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali',
                 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
                 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
                 'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
@@ -1503,13 +1503,20 @@
                     body: buildBody(`Dear CMC-Clinical Genetics team,`)
                 };
             } else if (dept && (HAEM_DEPTS.has(dept) || JEEVA_DEPTS.has(dept))) {
-                const to = HAEM_DEPTS.has(dept) ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
                 const deptSuffix = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
                 const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
                 const greeting   = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC-${deptSuffix} team,`;
+                let to, cc;
+                if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice') {
+                    to = 'eunice@cmcvellore.ac.in, kgsankaridevi@gmail.com, phaneendra.dv@cmcvellore.ac.in, mariya.tomy@cmcvellore.ac.in';
+                    cc = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
+                } else {
+                    to = HAEM_DEPTS.has(dept) ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
+                    cc = 'snandhana2011@gmail.com, nandhanas129@gmail.com';
+                }
                 previewData = {
                     to, from: 'andersonbioinfo@gmail.com',
-                    cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
+                    cc,
                     subject,
                     body: buildBody(greeting)
                 };
@@ -1570,24 +1577,30 @@
             } else {
                 badge.style.display = 'none';
             }
-            // Recalculate TO live from current dept in case it was selected after last render
+            // Recalculate TO/CC live from current dept in case it was selected after last render
             let toEmail = preview.to;
+            let ccEmail = preview.cc;
             if (!toEmail) {
                 const rawKey = decodeURIComponent(encKey);
                 const dept   = _deptGet()[rawKey] || '';
                 if (dept) {
-                    const isHaem = [
-                        'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY',
-                        'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
-                        'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
-                        'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
-                    ].includes(dept);
-                    toEmail = isHaem ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
+                    if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice') {
+                        toEmail = 'eunice@cmcvellore.ac.in, kgsankaridevi@gmail.com, phaneendra.dv@cmcvellore.ac.in, mariya.tomy@cmcvellore.ac.in';
+                        ccEmail = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
+                    } else {
+                        const isHaem = [
+                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali',
+                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
+                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
+                            'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
+                        ].includes(dept);
+                        toEmail = isHaem ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
+                    }
                 }
             }
             document.getElementById('mpFrom').value    = preview.from    || '';
             document.getElementById('mpTo').value      = toEmail         || '';
-            document.getElementById('mpCC').value      = preview.cc      || '';
+            document.getElementById('mpCC').value      = ccEmail         || '';
             document.getElementById('mpSubject').value = preview.subject  || '';
             document.getElementById('mpBody').value    = preview.body     || '';
             const btn = document.getElementById('mailPreviewSendBtn');
@@ -1773,7 +1786,7 @@
                 getFieldValue(row, 'remarks', sheetName) || ''
             ).trim().toUpperCase();
 
-            if (remarks.includes('HAEMOTOL') || remarks.includes('HAEMATOL')) return 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY';
+            if (remarks.includes('HAEMOTOL') || remarks.includes('HAEMATOL')) return 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali';
             if (remarks.includes('NEPHROL')) return 'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY';
             if (remarks.includes('MEDICAL GENET') || remarks.includes('MEDICAL GENTIC')) return 'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENETICS';
             if (remarks.includes('CMC') || remarks.includes('CHRISTIAN MEDICAL COLLEGE')) return 'CMC';
