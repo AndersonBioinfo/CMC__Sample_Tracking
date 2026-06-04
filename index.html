@@ -1317,13 +1317,7 @@
                     if (++done === files.length) {
                         store[key] = list;
                         _rptSave(store);
-                        const _tc0 = document.querySelector('.table-container');
-                        const _sl0 = _tc0 ? _tc0.scrollLeft : 0;
-                        const _ca0 = document.getElementById('contentArea');
-                        const _sy0 = _ca0 ? _ca0.scrollTop : 0;
-                        displaySheet(currentSheet);
-                        const _restore0 = () => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl0; const c = document.getElementById('contentArea'); if (c) c.scrollTop = _sy0; };
-                        _restore0(); setTimeout(_restore0, 0); setTimeout(_restore0, 150);
+                        _updateRowCells(key);
                         showToast(`✓ ${files.length} file(s) uploaded — use Preview to review and send`, 'success');
                     }
                 };
@@ -1337,15 +1331,22 @@
             if (store[key]) {
                 store[key].splice(idx, 1);
                 if (!store[key].length) delete store[key];
-                const _tc1 = document.querySelector('.table-container');
-                const _sl1 = _tc1 ? _tc1.scrollLeft : 0;
-                const _ca1 = document.getElementById('contentArea');
-                const _sy1 = _ca1 ? _ca1.scrollTop : 0;
                 _rptSave(store);
-                displaySheet(currentSheet);
-                const _restore1 = () => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl1; const c = document.getElementById('contentArea'); if (c) c.scrollTop = _sy1; };
-                _restore1(); setTimeout(_restore1, 0); setTimeout(_restore1, 150);
+                _updateRowCells(key);
             }
+        }
+
+        function _updateRowCells(key) {
+            const enc  = encodeURIComponent(key);
+            let   tr   = null;
+            document.querySelectorAll('tr[data-rowkey]').forEach(el => { if (el.dataset.rowkey === enc) tr = el; });
+            const row  = tr && (currentView || []).find(r => _rowKey(r) === key);
+            if (!tr || !row) { displaySheet(currentSheet); return; }
+            const rIdx = currentTableCols.findIndex(c => c.title === 'Reports');
+            const mIdx = currentTableCols.findIndex(c => c.title === 'Mail');
+            const tds  = tr.querySelectorAll('td');
+            if (rIdx >= 0 && tds[rIdx]) tds[rIdx].innerHTML = renderReportCell(row, '');
+            if (mIdx >= 0 && tds[mIdx]) tds[mIdx].innerHTML = renderMailCell(row);
         }
 
         function renderReportCell(row, sheetValue) {
@@ -2479,7 +2480,7 @@
 
             rows.forEach(row => {
                 const rowClass = getTATClass(row);
-                html += `<tr class="${rowClass}">`;
+                html += `<tr class="${rowClass}" data-rowkey="${encodeURIComponent(_rowKey(row))}">`;
 
                 cols.forEach(col => {
                     const value = col.getValue(row);
