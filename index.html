@@ -1319,8 +1319,9 @@
                         _rptSave(store);
                         const _tc0 = document.querySelector('.table-container');
                         const _sl0 = _tc0 ? _tc0.scrollLeft : 0;
+                        const _sy0 = window.scrollY;
                         displaySheet(currentSheet);
-                        requestAnimationFrame(() => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl0; });
+                        requestAnimationFrame(() => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl0; window.scrollTo(0, _sy0); });
                         showToast(`✓ ${files.length} file(s) uploaded — use Preview to review and send`, 'success');
                     }
                 };
@@ -1336,9 +1337,10 @@
                 if (!store[key].length) delete store[key];
                 const _tc1 = document.querySelector('.table-container');
                 const _sl1 = _tc1 ? _tc1.scrollLeft : 0;
+                const _sy1 = window.scrollY;
                 _rptSave(store);
                 displaySheet(currentSheet);
-                requestAnimationFrame(() => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl1; });
+                requestAnimationFrame(() => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl1; window.scrollTo(0, _sy1); });
             }
         }
 
