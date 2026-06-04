@@ -1300,6 +1300,7 @@
             if (value) { store[key] = value; el.classList.add('selected'); }
             else        { delete store[key]; el.classList.remove('selected'); }
             _deptSave(store);
+            _updateRowCells(key);
         }
 
         function handleFileUpload(event, enc) {
