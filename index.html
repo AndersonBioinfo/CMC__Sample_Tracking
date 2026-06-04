@@ -1317,7 +1317,10 @@
                     if (++done === files.length) {
                         store[key] = list;
                         _rptSave(store);
+                        const _tc0 = document.querySelector('.table-container');
+                        const _sl0 = _tc0 ? _tc0.scrollLeft : 0;
                         displaySheet(currentSheet);
+                        requestAnimationFrame(() => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl0; });
                         showToast(`✓ ${files.length} file(s) uploaded — use Preview to review and send`, 'success');
                     }
                 };
@@ -1331,7 +1334,11 @@
             if (store[key]) {
                 store[key].splice(idx, 1);
                 if (!store[key].length) delete store[key];
-                _rptSave(store); displaySheet(currentSheet);
+                const _tc1 = document.querySelector('.table-container');
+                const _sl1 = _tc1 ? _tc1.scrollLeft : 0;
+                _rptSave(store);
+                displaySheet(currentSheet);
+                requestAnimationFrame(() => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl1; });
             }
         }
 
