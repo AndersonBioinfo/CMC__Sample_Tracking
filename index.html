@@ -1510,10 +1510,12 @@
             const bodyCore    = `Greetings of the day,\n\nPlease find the Whole Exome Sequencing (WES) results of ${patientName}. The detailed results are provided in the attached Excel sheet for your reference.`;
             const buildBody   = (greeting) => `Subject: ${subject}\n\n${greeting ? greeting + '\n\n' : ''}${bodyCore}${signOff}`;
             let previewData;
+            const ANDERSON_CC = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
             if (medGen) {
                 previewData = {
-                    to: 'jeevav936@gmail.com', from: 'andersonbioinfo@gmail.com',
-                    cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
+                    to: 'medgen@cmcvellore.ac.in, noel.deep@cmcvellore.ac.in, rekha.athiyarath@gmail.com',
+                    from: 'andersonbioinfo@gmail.com',
+                    cc: ANDERSON_CC,
                     subject,
                     body: buildBody(`Dear CMC-Clinical Genetics team,`)
                 };
@@ -1521,30 +1523,34 @@
                 const deptSuffix = dept.replace('CHRISTIAN MEDICAL COLLEGE - ', '').trim();
                 const drMatch    = deptSuffix.match(/^HAEMOTOLOGY (Dr\.\w+)$/);
                 const greeting   = drMatch ? `Dear ${drMatch[1]},` : `Dear CMC-${deptSuffix} team,`;
-                let to, cc;
-                if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice') {
+                let to;
+                if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali') {
+                    to = 'kapadia.alpeshkumar.pg@cmcvellore.ac.in, bpoonkuzhali@cmcvellore.ac.in';
+                } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice') {
                     to = 'eunice@cmcvellore.ac.in, kgsankaridevi@gmail.com, phaneendra.dv@cmcvellore.ac.in, mariya.tomy@cmcvellore.ac.in';
-                    cc = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
                 } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji') {
                     to = 'rvshaji@cmcvellore.ac.in, jesina.samuel@cmcvellore.ac.in, sowmya.b@cmcvellore.ac.in, sweety.priyanka@cmcvellore.ac.in';
-                    cc = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
                 } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY') {
                     to = 'rajan.babu@cmcvellore.ac.in, nephrologylab@cmcvellore.ac.in';
-                    cc = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
+                } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS') {
+                    to = 'cytogen@cmcvellore.ac.in';
+                } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY') {
+                    to = 'endolabcmcvellore@gmail.com, aaronchapla@gmail.com';
+                } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS') {
+                    to = 'medgen@cmcvellore.ac.in, noel.deep@cmcvellore.ac.in, rekha.athiyarath@gmail.com';
                 } else {
-                    to = HAEM_DEPTS.has(dept) ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
-                    cc = 'snandhana2011@gmail.com, nandhanas129@gmail.com';
+                    to = '';
                 }
                 previewData = {
                     to, from: 'andersonbioinfo@gmail.com',
-                    cc,
+                    cc: ANDERSON_CC,
                     subject,
                     body: buildBody(greeting)
                 };
             } else {
                 previewData = {
                     to: '', from: 'andersonbioinfo@gmail.com',
-                    cc: 'snandhana2011@gmail.com, nandhanas129@gmail.com',
+                    cc: ANDERSON_CC,
                     subject,
                     body: buildBody('')
                 };
@@ -1605,23 +1611,21 @@
                 const rawKey = decodeURIComponent(encKey);
                 const dept   = _deptGet()[rawKey] || '';
                 if (dept) {
-                    if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice') {
+                    ccEmail = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
+                    if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali') {
+                        toEmail = 'kapadia.alpeshkumar.pg@cmcvellore.ac.in, bpoonkuzhali@cmcvellore.ac.in';
+                    } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice') {
                         toEmail = 'eunice@cmcvellore.ac.in, kgsankaridevi@gmail.com, phaneendra.dv@cmcvellore.ac.in, mariya.tomy@cmcvellore.ac.in';
-                        ccEmail = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
                     } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji') {
                         toEmail = 'rvshaji@cmcvellore.ac.in, jesina.samuel@cmcvellore.ac.in, sowmya.b@cmcvellore.ac.in, sweety.priyanka@cmcvellore.ac.in';
-                        ccEmail = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
                     } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - NEPHROLOGY') {
                         toEmail = 'rajan.babu@cmcvellore.ac.in, nephrologylab@cmcvellore.ac.in';
-                        ccEmail = 'sachin@andersondiagnostics.com, sivasankar@andersondiagnostics.in, genetics@andersondiagnostics.in';
-                    } else {
-                        const isHaem = [
-                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Poonkuzhali',
-                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Eunice',
-                            'CHRISTIAN MEDICAL COLLEGE - HAEMOTOLOGY Dr.Shaji',
-                            'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS'
-                        ].includes(dept);
-                        toEmail = isHaem ? 'nandhananandhana1062.sse@saveetha.com' : 'jeevav936@gmail.com';
+                    } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - CYTOGENETICS') {
+                        toEmail = 'cytogen@cmcvellore.ac.in';
+                    } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - MOLECULAR ENDOCRINOLOGY') {
+                        toEmail = 'endolabcmcvellore@gmail.com, aaronchapla@gmail.com';
+                    } else if (dept === 'CHRISTIAN MEDICAL COLLEGE - MEDICAL GENTICS') {
+                        toEmail = 'medgen@cmcvellore.ac.in, noel.deep@cmcvellore.ac.in, rekha.athiyarath@gmail.com';
                     }
                 }
             }
