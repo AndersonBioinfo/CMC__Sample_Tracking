@@ -1322,8 +1322,10 @@
                         const _ca0 = document.getElementById('contentArea');
                         const _sy0 = _ca0 ? _ca0.scrollTop : 0;
                         displaySheet(currentSheet);
+                        const _sbVal = (document.getElementById('searchBox') || {}).value || '';
+                        if (_sbVal.trim()) searchTable();
                         const _restore0 = () => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl0; const c = document.getElementById('contentArea'); if (c) c.scrollTop = _sy0; };
-                        _restore0(); setTimeout(_restore0, 0); setTimeout(_restore0, 100);
+                        _restore0(); setTimeout(_restore0, 0); setTimeout(_restore0, 150);
                         showToast(`✓ ${files.length} file(s) uploaded — use Preview to review and send`, 'success');
                     }
                 };
@@ -1343,8 +1345,10 @@
                 const _sy1 = _ca1 ? _ca1.scrollTop : 0;
                 _rptSave(store);
                 displaySheet(currentSheet);
+                const _sbVal1 = (document.getElementById('searchBox') || {}).value || '';
+                if (_sbVal1.trim()) searchTable();
                 const _restore1 = () => { const t = document.querySelector('.table-container'); if (t) t.scrollLeft = _sl1; const c = document.getElementById('contentArea'); if (c) c.scrollTop = _sy1; };
-                _restore1(); setTimeout(_restore1, 0); setTimeout(_restore1, 100);
+                _restore1(); setTimeout(_restore1, 0); setTimeout(_restore1, 150);
             }
         }
 
