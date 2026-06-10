@@ -1812,11 +1812,13 @@
             html += '<thead><tr>' + headers.map(h =>
                 `<th style="border:1px solid #6b7280;background:#dbe2f1;padding:7px 9px;text-align:center;font-weight:bold;">${h}</th>`
             ).join('') + '</tr></thead><tbody>';
+            let anyValue = false;
             rows.forEach(r => {
                 const cells = [
                     val(r,'Sample name'), val(r,'Received date'), val(r,'Anderson ID'),
                     val(r,'Sample type') || 'DNA', val(r,'Test name'), val(r,'Raw data TAT'), val(r,'Report TAT')
                 ];
+                if (cells.some((c, i) => c && i !== 3)) anyValue = true;   // ignore the defaulted "DNA"
                 html += '<tr>' + cells.map((c, i) =>
                     `<td style="border:1px solid #6b7280;padding:6px 9px;text-align:${i === 4 ? 'left' : 'center'};">${esc(c)}</td>`
                 ).join('') + '</tr>';
@@ -1826,6 +1828,13 @@
                 html += `<tr><td colspan="7" style="border:1px solid #6b7280;padding:8px;text-align:center;color:#888;">${msg}</td></tr>`;
             }
             html += '</tbody></table>';
+            // Diagnostic: rows came back but none of the columns matched → show the real header names
+            if (rows.length && !anyValue) {
+                const keys = Object.keys(rows[0] || {}).filter(k => String(k).trim());
+                html += `<div contenteditable="false" style="font-size:12px;color:#b91c1c;margin-top:8px;line-height:1.5;">`
+                      + `⚠ Loaded ${rows.length} row(s) but couldn't match the columns. Your sheet's headers are:<br><b>${esc(keys.join('  |  '))}</b>`
+                      + `</div>`;
+            }
             return html;
         }
 
