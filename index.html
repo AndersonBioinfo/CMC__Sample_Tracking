@@ -396,6 +396,7 @@
             border-right: 1px solid transparent;
             border-top: 1px solid transparent;
             border-bottom: 1px solid transparent;
+            white-space: nowrap;
         }
         .sidebar-btn:active { transform: scale(0.97); }
 
@@ -410,7 +411,7 @@
             background: rgba(99,102,241,0.3);
             border-color: rgba(165,180,252,0.8);
         }
-        .total-samples-btn .ts-label { font-size: 12px; font-weight: 600; }
+        .total-samples-btn .ts-label { font-size: 12px; font-weight: 600; white-space: nowrap; }
         .total-samples-btn .ts-count {
             font-size: 16px;
             font-weight: 800;
@@ -1105,11 +1106,11 @@
 
 
         <button class="sidebar-btn total-samples-btn" onclick="resetTopFilter()" title="Show all samples">
-            <span class="ts-label">📊 Total Samples</span>
+            <span class="ts-label">Total Samples</span>
             <span class="ts-count" id="totalSamplesCount">–</span>
         </button>
-        <button class="sidebar-btn sidebar-btn-refresh" onclick="loadAllData(true)">🔄 Refresh Data</button>
-        <button class="sidebar-btn sidebar-btn-reset" onclick="resetLocalData()">🗑️ Reset Mail & Files</button>
+        <button class="sidebar-btn sidebar-btn-refresh" onclick="loadAllData(true)">Refresh Data</button>
+        <button class="sidebar-btn sidebar-btn-reset" onclick="resetLocalData()">Reset Mail & Files</button>
 
         <div class="filter-bar sidebar-filter">
             <h4 class="sidebar-filter-title">🔎 Filters</h4>
