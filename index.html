@@ -355,6 +355,30 @@
             box-shadow: 0 0 0 3px rgba(79,70,229,0.15), inset 0 1px 4px rgba(79,70,229,0.07);
         }
 
+        .send-mail-btn {
+            flex-shrink: 0;
+            padding: 9px 20px;
+            border: none;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #4338ca, #6366f1);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            box-shadow: 0 3px 12px rgba(79,70,229,0.35);
+            transition: all 0.2s;
+        }
+        .send-mail-btn:hover {
+            background: linear-gradient(135deg, #312e81, #4f46e5);
+            box-shadow: 0 5px 18px rgba(79,70,229,0.5);
+            transform: translateY(-1px);
+        }
+        .send-mail-btn:active { transform: scale(0.97); }
+
         .sidebar-btn {
             display: flex;
             align-items: center;
@@ -553,16 +577,22 @@
         }
 
         .stat-item.clickable:hover {
-            background: rgba(255,255,255,0.32);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+            filter: brightness(1.12);
         }
 
         .stat-item.clickable.active-filter {
-            background: rgba(255,255,255,0.55);
-            border-color: rgba(255,255,255,0.9);
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.15);
+            border-color: rgba(255,255,255,0.95);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.75), 0 4px 12px rgba(0,0,0,0.2);
+            filter: brightness(1.12);
         }
+
+        /* Status-based button colors */
+        .stat-item.stat-total     { background: rgba(99,102,241,0.85); border-color: rgba(165,180,252,0.75); color: #fff; }
+        .stat-item.stat-ongoing   { background: rgba(217,119,6,0.92);  border-color: rgba(252,211,77,0.85);  color: #fff; }
+        .stat-item.stat-overdue   { background: rgba(220,38,38,0.92);  border-color: rgba(252,165,165,0.85); color: #fff; }
+        .stat-item.stat-completed { background: rgba(5,150,105,0.92);  border-color: rgba(110,231,183,0.85); color: #fff; }
 
         .stat-label {
             font-size: 11px;
@@ -1100,6 +1130,7 @@
             <div class="header-title-row">
                 <h1>CMC Sample Management System</h1>
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search in current view..." onkeyup="searchTable()">
+                <button class="send-mail-btn" onclick="openComposeMail()" title="Compose a new email">✉️ Send Mail</button>
             </div>
         </div>
 
@@ -1135,6 +1166,10 @@
                 <div class="mp-field"><span class="mp-label">CC</span><input class="mp-input" id="mpCC" type="text" placeholder="cc@example.com"></div>
                 <div class="mp-field"><span class="mp-label">Subject</span><input class="mp-input" id="mpSubject" type="text" placeholder="Subject"></div>
                 <div class="mp-field"><span class="mp-label">Body</span><textarea class="mp-body-input" id="mpBody"></textarea></div>
+                <div class="mp-field" id="mpPreviewWrap" style="display:none;">
+                    <span class="mp-label">Preview</span>
+                    <div id="mpHtmlPreview" style="flex:1;width:100%;background:#fff;border:1.5px solid #c7d2fe;border-radius:8px;padding:12px;max-height:300px;overflow:auto;font-size:13px;color:#222;box-sizing:border-box;"></div>
+                </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
                     <button class="email-cancel-btn" onclick="closeMailPreview()">Cancel</button>
                     <button class="email-send-btn" id="mailPreviewSendBtn">✉️ Send Email</button>
@@ -1464,15 +1499,15 @@
             return all.includes('MEDICAL GENET') && all.includes('CHRISTIAN MEDICAL');
         }
 
-        async function sendEmailViaScript(rowKey, to, cc, subject, body) {
+        async function sendEmailViaScript(rowKey, to, cc, subject, body, htmlOverride) {
             showToast('📧 Sending email…', 'info');
             try {
                 const rawKey     = decodeURIComponent(rowKey);
                 const attachments = (_rptGet()[rawKey] || []).map(f => ({ name: f.name, dataUrl: f.dataUrl }));
                 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
+                const htmlBody = htmlOverride || ('<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.8;color:#222;max-width:700px;">'
                     + esc(body).replace(/\n/g,'<br>').replace(/<br>(Thanks\b.*)$/, '<div style="margin-top:1em;">$1</div>')
-                    + '</div>';
+                    + '</div>');
                 const payload    = JSON.stringify({ action: 'sendEmail', to, cc, subject, body, htmlBody, attachments });
                 const res  = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
@@ -1689,6 +1724,10 @@
             document.getElementById('mpCC').value      = ccEmail         || '';
             document.getElementById('mpSubject').value = preview.subject  || '';
             document.getElementById('mpBody').value    = preview.body     || '';
+            // Plain per-row email: hide the registration-table preview and disable live updates
+            document.getElementById('mpPreviewWrap').style.display = 'none';
+            document.getElementById('mpBody').oninput    = null;
+            document.getElementById('mpSubject').oninput = null;
             const btn = document.getElementById('mailPreviewSendBtn');
             btn.onclick = async () => {
                 const to      = document.getElementById('mpTo').value.trim();
@@ -1705,6 +1744,107 @@
 
         function closeMailPreview() {
             document.getElementById('mailPreviewModal').classList.remove('active');
+        }
+
+        // ── "Acknowledge of order registration" compose (header Send Mail button) ──
+        const ACK_TABLE_TOKEN = '{{SAMPLE_TABLE}}';
+
+        // Build the HTML registration table from the currently displayed samples,
+        // reusing the live column extractors (currentTableCols) so values match the grid.
+        function buildAckTableHTML() {
+            const rows = Array.isArray(currentView) ? currentView : [];
+            const colByTitle = {};
+            (currentTableCols || []).forEach(c => { colByTitle[c.title] = c; });
+            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const val = (r, title) => {
+                const c = colByTitle[title];
+                const v = c ? c.getValue(r) : '';
+                return (v == null) ? '' : String(v).trim();
+            };
+            const hasSampleType = !!colByTitle['Sample Type'];
+            const headers = ['Sample name','Received date','Anderson ID','Sample type','Test name','Raw data TAT','Report TAT'];
+            let html = '<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;margin:14px 0;">';
+            html += '<thead><tr>' + headers.map(h =>
+                `<th style="border:1px solid #6b7280;background:#dbe2f1;padding:7px 9px;text-align:center;font-weight:bold;">${h}</th>`
+            ).join('') + '</tr></thead><tbody>';
+            rows.forEach(r => {
+                const sampleType = hasSampleType ? (val(r,'Sample Type') || 'DNA') : 'DNA';
+                const cells = [
+                    val(r,'Sample Name'), val(r,'Received Date'), val(r,'Anderson ID'),
+                    sampleType, val(r,'Test'), val(r,'Raw Data Date'), val(r,'TAT Report Date')
+                ];
+                html += '<tr>' + cells.map((c, i) =>
+                    `<td style="border:1px solid #6b7280;padding:6px 9px;text-align:${i === 4 ? 'left' : 'center'};">${esc(c)}</td>`
+                ).join('') + '</tr>';
+            });
+            if (!rows.length) {
+                html += `<tr><td colspan="7" style="border:1px solid #6b7280;padding:8px;text-align:center;color:#888;">No samples in the current view</td></tr>`;
+            }
+            html += '</tbody></table>';
+            return html;
+        }
+
+        // Combine the editable body text with the auto-generated table at the token.
+        function buildAckEmailHtml(bodyText) {
+            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const htmlParts = String(bodyText || '').split(ACK_TABLE_TOKEN).map(p => esc(p).replace(/\n/g,'<br>'));
+            return '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#222;max-width:900px;">'
+                + htmlParts.join(buildAckTableHTML())
+                + '</div>';
+        }
+
+        function refreshAckPreview() {
+            const wrap = document.getElementById('mpPreviewWrap');
+            const prev = document.getElementById('mpHtmlPreview');
+            if (!wrap || !prev) return;
+            const subj = document.getElementById('mpSubject').value.trim();
+            prev.innerHTML = (subj ? `<div style="font-size:18px;font-weight:600;margin-bottom:12px;color:#111;">${subj.replace(/</g,'&lt;')}</div>` : '')
+                + buildAckEmailHtml(document.getElementById('mpBody').value);
+            wrap.style.display = 'flex';
+        }
+
+        function openComposeMail() {
+            document.getElementById('mailPreviewSentBadge').style.display = 'none';
+            document.getElementById('mpFrom').value    = 'andersonbioinfo@gmail.com';
+            document.getElementById('mpTo').value      = '';
+            document.getElementById('mpCC').value      = '';
+            document.getElementById('mpSubject').value = 'Acknowledge of order registration';
+            document.getElementById('mpBody').value    =
+`Dear CMC team,
+
+Greetings of the day,
+
+This is to inform you that the patient's samples have been received successfully and the registration has been completed. The registration details are as follows:
+
+${ACK_TABLE_TOKEN}
+
+While every effort will be made to ensure that the report is sent within TAT, in the case of unexpected delay an intimation will be sent prior to the delivery date.
+
+Thanks and Regards
+Dr. S. Muthukumaran PhD
+Anderson Diagnostics`;
+
+            refreshAckPreview();
+            document.getElementById('mpBody').oninput    = refreshAckPreview;
+            document.getElementById('mpSubject').oninput = refreshAckPreview;
+
+            const btn = document.getElementById('mailPreviewSendBtn');
+            btn.onclick = async () => {
+                const to       = document.getElementById('mpTo').value.trim();
+                const cc       = document.getElementById('mpCC').value.trim();
+                const subject  = document.getElementById('mpSubject').value.trim();
+                const bodyText = document.getElementById('mpBody').value;
+                if (!to)      { showToast('⚠ Please enter a recipient (To) address', 'error'); return; }
+                if (!subject) { showToast('⚠ Please enter a subject', 'error'); return; }
+                const htmlBody  = buildAckEmailHtml(bodyText);
+                const plainBody = bodyText.replace(ACK_TABLE_TOKEN, '(registration details table)');
+                btn.textContent = '⏳ Sending…'; btn.disabled = true;
+                const ok = await sendEmailViaScript('', to, cc, subject, plainBody, htmlBody);
+                btn.textContent = '✉️ Send Email'; btn.disabled = false;
+                if (ok) closeMailPreview();
+            };
+            document.getElementById('mailPreviewModal').classList.add('active');
+            document.getElementById('mpTo').focus();
         }
 
         function _getPatientName(row) {
@@ -2266,7 +2406,7 @@
                     <div class="result-header">
                         <h3>${baseTitle}</h3>
                         <div class="result-stats">
-                            <div class="stat-item clickable${activeTATFilter ? '' : ' active-filter'}" onclick="filterByTATStatus(null)" title="Click to show all samples">
+                            <div class="stat-item clickable stat-total${activeTATFilter ? '' : ' active-filter'}" onclick="filterByTATStatus(null)" title="Click to show all samples">
                                 <div class="stat-label">Total Samples</div>
                                 <div class="stat-value">${statRows.length}</div>
                             </div>
@@ -2517,7 +2657,7 @@
                 <div class="result-header">
                     <h3>${title}</h3>
                     <div class="result-stats">
-                        <div class="stat-item clickable${activeTATFilter ? '' : ' active-filter'}" onclick="filterByTATStatus(null)" title="Click to show all samples">
+                        <div class="stat-item clickable stat-total${activeTATFilter ? '' : ' active-filter'}" onclick="filterByTATStatus(null)" title="Click to show all samples">
                             <div class="stat-label">Total Samples</div>
                             <div class="stat-value">${(statRows || rows).length}</div>
                         </div>
@@ -2601,7 +2741,8 @@
                 }
             });
             
-            const cls = (status) => `stat-item clickable${activeTATFilter === status ? ' active-filter' : ''}`;
+            const colorCls = { Ongoing: 'stat-ongoing', Overdue: 'stat-overdue', Released: 'stat-completed' };
+            const cls = (status) => `stat-item clickable ${colorCls[status]}${activeTATFilter === status ? ' active-filter' : ''}`;
             let html = `
                 <div class="${cls('Ongoing')}" onclick="filterByTATStatus('Ongoing')" title="Click to filter ongoing samples">
                     <div class="stat-label">⏳ Ongoing</div>
