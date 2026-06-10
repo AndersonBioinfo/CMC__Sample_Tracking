@@ -265,6 +265,44 @@
             color: #111827;
         }
 
+        /* Filter section relocated into the dark sidebar */
+        .sidebar-filter {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            margin: 6px 0 14px;
+            padding: 12px;
+            border-top: none;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 12px;
+        }
+        .sidebar-filter-title {
+            margin: 0;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: #a5b4fc;
+        }
+        .sidebar-filter .filter-bar-group {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 5px;
+        }
+        .sidebar-filter .filter-bar-group label {
+            color: #cbd5e1;
+        }
+        .sidebar-filter .filter-bar-group select {
+            width: 100%;
+            min-width: 0;
+        }
+        .sidebar-filter .apply-filter-btn,
+        .sidebar-filter .reset-filter-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
         .main-content {
             flex: 1;
             display: flex;
@@ -509,15 +547,15 @@
         }
 
         .table-container {
-            background: white;
-            border-radius: 14px;
-            box-shadow: 0 8px 32px rgba(15,23,42,0.1), 0 2px 8px rgba(0,0,0,0.05);
+            background: linear-gradient(180deg, #ffffff 0%, #f6f8ff 100%);
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(30,41,59,0.14), 0 3px 10px rgba(79,70,229,0.06);
             overflow-x: auto;
             overflow-y: auto;
             max-width: 100%;
             max-height: calc(100vh - 280px);
             position: relative;
-            border: 1px solid rgba(79,70,229,0.12);
+            border: 1px solid rgba(99,102,241,0.16);
         }
 
         table {
@@ -555,7 +593,7 @@
         }
 
         th {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+            background: linear-gradient(135deg, #312e81 0%, #4338ca 50%, #4f46e5 100%);
             color: white;
             padding: 14px 16px;
             text-align: center;
@@ -571,14 +609,14 @@
             transition: all 0.2s;
             min-width: 150px;
             white-space: nowrap;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.3);
-            border-right: 1px solid rgba(255,255,255,0.08);
-            border-bottom: 3px solid rgba(99,102,241,0.6);
+            text-shadow: 0 1px 4px rgba(0,0,0,0.35);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 3px solid rgba(129,140,248,0.7);
         }
 
         th:hover {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-            box-shadow: inset 0 -3px 0 rgba(99,102,241,0.5);
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            box-shadow: inset 0 -3px 0 rgba(165,180,252,0.7);
         }
 
         th.sortable::after {
@@ -598,7 +636,7 @@
 
         td {
             padding: 13px 14px;
-            border-bottom: 1px solid #eef2ff;
+            border-bottom: 1px solid #e8ecfb;
             font-size: 13.5px;
             min-width: 150px;
             max-width: 350px;
@@ -607,17 +645,20 @@
             vertical-align: middle;
             line-height: 1.45;
             text-align: center;
-            color: #374151;
+            color: #334155;
             transition: background 0.15s;
         }
 
-        tbody tr { transition: box-shadow 0.15s; }
+        tbody tr { transition: box-shadow 0.15s, transform 0.15s; }
+        tbody tr:nth-child(odd):not(.tat-overdue):not(.tat-pending):not(.tat-completed) td {
+            background: #ffffff;
+        }
         tbody tr:nth-child(even):not(.tat-overdue):not(.tat-pending):not(.tat-completed) td {
-            background: #f8f9ff;
+            background: #f1f4ff;
         }
         tr:hover td {
-            background: rgba(79,70,229,0.05) !important;
-            box-shadow: inset 3px 0 0 #6366f1;
+            background: rgba(99,102,241,0.09) !important;
+            box-shadow: inset 4px 0 0 #6366f1;
         }
 
         .col-history {
@@ -1006,6 +1047,24 @@
         <button class="sidebar-btn sidebar-btn-refresh" onclick="loadAllData(true)">🔄 Refresh Data</button>
         <button class="sidebar-btn sidebar-btn-reset" onclick="resetLocalData()">🗑️ Reset Mail & Files</button>
 
+        <div class="filter-bar sidebar-filter">
+            <h4 class="sidebar-filter-title">🔎 Filters</h4>
+            <div class="filter-bar-group">
+                <label for="clientSelect">Client:</label>
+                <select id="clientSelect">
+                    <option value="">All Clients</option>
+                </select>
+            </div>
+            <div class="filter-bar-group">
+                <label for="topYearSelect">Year:</label>
+                <select id="topYearSelect">
+                    <option value="">All Years</option>
+                </select>
+            </div>
+            <button class="apply-filter-btn" onclick="applyTopFilter()">📈 Apply Filter</button>
+            <button class="reset-filter-btn" onclick="resetTopFilter()">🔄 Refresh Filter</button>
+        </div>
+
         <div id="dataInfo" class="available-data-info" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <h4 style="margin: 0;">📅 Data Status</h4>
@@ -1029,22 +1088,6 @@
             <div class="header-title-row">
                 <h1>CMC Sample Management System</h1>
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search in current view..." onkeyup="searchTable()">
-            </div>
-            <div class="filter-bar">
-                <div class="filter-bar-group">
-                    <label for="clientSelect">Client:</label>
-                    <select id="clientSelect">
-                        <option value="">All Clients</option>
-                    </select>
-                </div>
-                <div class="filter-bar-group">
-                    <label for="topYearSelect">Year:</label>
-                    <select id="topYearSelect">
-                        <option value="">All Years</option>
-                    </select>
-                </div>
-                <button class="apply-filter-btn" onclick="applyTopFilter()">📈 Apply Filter</button>
-                <button class="reset-filter-btn" onclick="resetTopFilter()">🔄 Refresh Filter</button>
             </div>
         </div>
 
