@@ -1166,6 +1166,10 @@
                 <div class="mp-field"><span class="mp-label">CC</span><input class="mp-input" id="mpCC" type="text" placeholder="cc@example.com"></div>
                 <div class="mp-field"><span class="mp-label">Subject</span><input class="mp-input" id="mpSubject" type="text" placeholder="Subject"></div>
                 <div class="mp-field"><span class="mp-label">Body</span><textarea class="mp-body-input" id="mpBody"></textarea></div>
+                <div class="mp-field" id="mpPreviewWrap" style="display:none;">
+                    <span class="mp-label">Email<br>Preview</span>
+                    <div id="mpHtmlPreview" style="flex:1;width:100%;background:#fff;border:1.5px solid #c7d2fe;border-radius:8px;padding:14px;max-height:320px;overflow:auto;font-size:13px;color:#222;box-sizing:border-box;"></div>
+                </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
                     <button class="email-cancel-btn" onclick="closeMailPreview()">Cancel</button>
                     <button class="email-send-btn" id="mailPreviewSendBtn">✉️ Send Email</button>
@@ -1720,6 +1724,10 @@
             document.getElementById('mpCC').value      = ccEmail         || '';
             document.getElementById('mpSubject').value = preview.subject  || '';
             document.getElementById('mpBody').value    = preview.body     || '';
+            // Plain per-row email: hide the registration-table preview and disable live updates
+            document.getElementById('mpPreviewWrap').style.display = 'none';
+            document.getElementById('mpBody').oninput    = null;
+            document.getElementById('mpSubject').oninput = null;
             const btn = document.getElementById('mailPreviewSendBtn');
             btn.onclick = async () => {
                 const to      = document.getElementById('mpTo').value.trim();
@@ -1739,9 +1747,10 @@
         }
 
         // ── "Acknowledge of order registration" compose (header Send Mail button) ──
-        const ACK_TABLE_TOKEN     = '{{SAMPLE_TABLE}}';
+        const ACK_TABLE_TOKEN     = '[ LATEST RECEIVED SAMPLES TABLE ]';   // placeholder in Body; replaced by the real table on send
         const REGISTRATION_LIMIT  = 10;            // number of latest received samples to include
         let   _latestRegistrations = [];           // rows fetched from the registration sheet
+        let   _regLoading          = false;        // true while fetching registrations
 
         // Read a logical column from a registration row, matching header names flexibly.
         function getRegVal(row, field) {
@@ -1805,7 +1814,8 @@
                 ).join('') + '</tr>';
             });
             if (!rows.length) {
-                html += `<tr><td colspan="7" style="border:1px solid #6b7280;padding:8px;text-align:center;color:#888;">No registration data loaded</td></tr>`;
+                const msg = _regLoading ? 'Loading latest received samples…' : 'No registration data loaded';
+                html += `<tr><td colspan="7" style="border:1px solid #6b7280;padding:8px;text-align:center;color:#888;">${msg}</td></tr>`;
             }
             html += '</tbody></table>';
             return html;
@@ -1818,6 +1828,17 @@
             return '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#222;max-width:900px;">'
                 + htmlParts.join(buildAckTableHTML())
                 + '</div>';
+        }
+
+        // Render the live "this is what will be sent" preview (subject + body + real table).
+        function refreshAckPreview() {
+            const wrap = document.getElementById('mpPreviewWrap');
+            const prev = document.getElementById('mpHtmlPreview');
+            if (!wrap || !prev) return;
+            const subj = document.getElementById('mpSubject').value.trim();
+            prev.innerHTML = (subj ? `<div style="font-size:18px;font-weight:600;margin-bottom:12px;color:#111;">${subj.replace(/</g,'&lt;')}</div>` : '')
+                + buildAckEmailHtml(document.getElementById('mpBody').value);
+            wrap.style.display = 'flex';
         }
 
         function openComposeMail() {
@@ -1856,18 +1877,28 @@ Anderson Diagnostics`;
                 btn.textContent = '✉️ Send Email'; btn.disabled = false;
                 if (ok) closeMailPreview();
             };
+            // Live-update the rendered preview as the text is edited
+            document.getElementById('mpBody').oninput    = refreshAckPreview;
+            document.getElementById('mpSubject').oninput = refreshAckPreview;
+
             document.getElementById('mailPreviewModal').classList.add('active');
             document.getElementById('mpTo').focus();
 
-            // Fetch the latest received samples from the registration sheet for the table.
+            // Fetch the latest received samples from the registration sheet, then show the table.
             _latestRegistrations = [];
+            _regLoading = true;
+            refreshAckPreview();   // shows the email immediately (table area says "loading…")
             showToast('📥 Loading latest received samples…', 'info');
             fetchLatestRegistrations()
                 .then(rows => {
                     _latestRegistrations = rows;
+                    _regLoading = false;
+                    refreshAckPreview();   // re-render with the real table
                     showToast(`✓ Loaded ${rows.length} latest registration${rows.length === 1 ? '' : 's'}`, 'success');
                 })
                 .catch(err => {
+                    _regLoading = false;
+                    refreshAckPreview();
                     showToast('⚠ Could not load registration sheet: ' + err.message, 'error');
                 });
         }
