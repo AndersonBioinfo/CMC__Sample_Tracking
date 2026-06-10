@@ -308,6 +308,8 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            min-height: 0;
+            min-width: 0;
         }
 
         .header {
@@ -372,6 +374,29 @@
             border-bottom: 1px solid transparent;
         }
         .sidebar-btn:active { transform: scale(0.97); }
+
+        .total-samples-btn {
+            justify-content: space-between;
+            background: rgba(99,102,241,0.18);
+            border: 1px solid rgba(129,140,248,0.5);
+            color: #e0e7ff;
+            margin-bottom: 12px;
+        }
+        .total-samples-btn:hover {
+            background: rgba(99,102,241,0.3);
+            border-color: rgba(165,180,252,0.8);
+        }
+        .total-samples-btn .ts-label { font-size: 12px; font-weight: 600; }
+        .total-samples-btn .ts-count {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff;
+            background: #4f46e5;
+            border-radius: 8px;
+            padding: 1px 11px;
+            min-width: 28px;
+            text-align: center;
+        }
 
         .sidebar-btn-config {
             background: rgba(99,102,241,0.12);
@@ -455,8 +480,11 @@
 
         .content-area {
             flex: 1;
-            overflow: auto;
+            overflow: hidden;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
         }
 
         .loading {
@@ -489,6 +517,7 @@
             flex-wrap: wrap;
             gap: 12px;
             border: 1px solid rgba(255,255,255,0.12);
+            flex-shrink: 0;
         }
 
         .result-header h3 {
@@ -547,15 +576,15 @@
         }
 
         .table-container {
-            background: linear-gradient(180deg, #ffffff 0%, #f6f8ff 100%);
-            border-radius: 16px;
-            box-shadow: 0 12px 40px rgba(30,41,59,0.14), 0 3px 10px rgba(79,70,229,0.06);
+            background: #ffffff;
+            border-radius: 8px;
             overflow-x: auto;
             overflow-y: auto;
             max-width: 100%;
-            max-height: calc(100vh - 280px);
+            flex: 1;
+            min-height: 0;
             position: relative;
-            border: 1px solid rgba(99,102,241,0.16);
+            border: 1px solid #d6dbe7;
         }
 
         table {
@@ -578,6 +607,7 @@
             font-size: 12px;
             border-radius: 5px 5px 0 0;
             display: none;
+            flex-shrink: 0;
         }
 
         .scroll-hint.show {
@@ -593,12 +623,12 @@
         }
 
         th {
-            background: linear-gradient(135deg, #312e81 0%, #4338ca 50%, #4f46e5 100%);
+            background: #3730a3;
             color: white;
-            padding: 14px 16px;
+            padding: 9px 14px;
             text-align: center;
             font-weight: 700;
-            font-size: 13px;
+            font-size: 12.5px;
             letter-spacing: 0.4px;
             text-transform: uppercase;
             position: sticky;
@@ -606,17 +636,14 @@
             z-index: 10;
             cursor: pointer;
             user-select: none;
-            transition: all 0.2s;
             min-width: 150px;
             white-space: nowrap;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.35);
-            border-right: 1px solid rgba(255,255,255,0.1);
-            border-bottom: 3px solid rgba(129,140,248,0.7);
+            border-right: 1px solid rgba(255,255,255,0.15);
+            border-bottom: 2px solid #312e81;
         }
 
         th:hover {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
-            box-shadow: inset 0 -3px 0 rgba(165,180,252,0.7);
+            background: #312e81;
         }
 
         th.sortable::after {
@@ -635,30 +662,28 @@
         }
 
         td {
-            padding: 13px 14px;
-            border-bottom: 1px solid #e8ecfb;
-            font-size: 13.5px;
+            padding: 7px 14px;
+            border-bottom: 1px solid #e2e6ef;
+            border-right: 1px solid #eceef4;
+            font-size: 13px;
             min-width: 150px;
             max-width: 350px;
             white-space: normal;
             word-wrap: break-word;
             vertical-align: middle;
-            line-height: 1.45;
+            line-height: 1.35;
             text-align: center;
-            color: #334155;
-            transition: background 0.15s;
+            color: #1f2937;
         }
 
-        tbody tr { transition: box-shadow 0.15s, transform 0.15s; }
         tbody tr:nth-child(odd):not(.tat-overdue):not(.tat-pending):not(.tat-completed) td {
             background: #ffffff;
         }
         tbody tr:nth-child(even):not(.tat-overdue):not(.tat-pending):not(.tat-completed) td {
-            background: #f1f4ff;
+            background: #f3f5fa;
         }
         tr:hover td {
-            background: rgba(99,102,241,0.09) !important;
-            box-shadow: inset 4px 0 0 #6366f1;
+            background: #e8ebf5 !important;
         }
 
         .col-history {
@@ -683,19 +708,19 @@
         }
 
         /* Overdue — red/rose */
-        .tat-overdue td  { background: linear-gradient(90deg, #fde8e8 0%, #fecaca 100%) !important; color: #7f1d1d; }
+        .tat-overdue td  { background: #fde2e2 !important; color: #7f1d1d; }
         .tat-overdue td:first-child  { border-left: 5px solid #dc2626 !important; }
-        .tat-overdue:hover td { background: rgba(220,38,38,0.15) !important; box-shadow: inset 3px 0 0 #dc2626; }
+        .tat-overdue:hover td { background: #fbd0d0 !important; }
 
         /* Ongoing — amber/yellow */
-        .tat-pending td  { background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%) !important; color: #78350f; }
+        .tat-pending td  { background: #fdf0c9 !important; color: #78350f; }
         .tat-pending td:first-child  { border-left: 5px solid #d97706 !important; }
-        .tat-pending:hover td { background: rgba(217,119,6,0.15) !important; box-shadow: inset 3px 0 0 #d97706; }
+        .tat-pending:hover td { background: #fbe6a8 !important; }
 
         /* Completed/Released — green */
-        .tat-completed td { background: linear-gradient(90deg, #d1fae5 0%, #a7f3d0 100%) !important; color: #064e3b; }
+        .tat-completed td { background: #d7f5e3 !important; color: #064e3b; }
         .tat-completed td:first-child { border-left: 5px solid #059669 !important; }
-        .tat-completed:hover td { background: rgba(5,150,105,0.15) !important; box-shadow: inset 3px 0 0 #059669; }
+        .tat-completed:hover td { background: #bff0d3 !important; }
 
         .status-badge {
             display: inline-block; padding: 4px 12px; border-radius: 20px;
@@ -1043,7 +1068,10 @@
         </div>
 
 
-        <button class="sidebar-btn sidebar-btn-config" onclick="showConfigModal()">⚙️ Column Mapping</button>
+        <button class="sidebar-btn total-samples-btn" onclick="resetTopFilter()" title="Show all samples">
+            <span class="ts-label">📊 Total Samples</span>
+            <span class="ts-count" id="totalSamplesCount">–</span>
+        </button>
         <button class="sidebar-btn sidebar-btn-refresh" onclick="loadAllData(true)">🔄 Refresh Data</button>
         <button class="sidebar-btn sidebar-btn-reset" onclick="resetLocalData()">🗑️ Reset Mail & Files</button>
 
@@ -1064,22 +1092,6 @@
             <button class="apply-filter-btn" onclick="applyTopFilter()">📈 Apply Filter</button>
             <button class="reset-filter-btn" onclick="resetTopFilter()">🔄 Refresh Filter</button>
         </div>
-
-        <div id="dataInfo" class="available-data-info" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h4 style="margin: 0;">📅 Data Status</h4>
-                <div id="mappingBadge" style="padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight:700; background: rgba(99,102,241,0.25); color:#a5b4fc; border:1px solid rgba(99,102,241,0.35); letter-spacing:0.3px;">Ready</div>
-            </div>
-            <div class="info-grid">
-                <span class="info-label">Sheets:</span>
-                <span class="info-value" id="infoSheets">-</span>
-                <span class="info-label">Clients:</span>
-                <span class="info-value" id="infoClients">-</span>
-                <span class="info-label">Samples:</span>
-                <span class="info-value" id="infoSamples">-</span>
-            </div>
-        </div>
-
 
     </div>
 
@@ -2112,15 +2124,11 @@
         function initFiltersAndInfo() {
             const clients = new Set();
             let totalSamples = 0;
-            let totalColumnsMapped = 0;
-            const requiredFields = ['clientName', 'tatReport'];
 
             // Single pass over all rows — collect clients + sample count (skip non-Month-Year sheets)
             Object.keys(allData).filter(n => getSheetDate(n) !== null).forEach(sheetName => {
                 const sheet = allData[sheetName];
-                const mapping = columnMappings[sheetName];
                 totalSamples += (sheet.rows || []).length;
-                requiredFields.forEach(f => { if (mapping && mapping[f]) totalColumnsMapped++; });
                 (sheet.rows || []).forEach(row => {
                     const c = getRowClientName(row, sheetName);
                     if (c) clients.add(getNormalizedClientName(c));
@@ -2148,15 +2156,9 @@
                     + Array.from(years).sort((a, b) => b - a).map(y => `<option value="${y}">${y}</option>`).join('');
             }
 
-            // Data status panel
-            document.getElementById('dataInfo').style.display = 'block';
-            document.getElementById('infoSheets').textContent = Object.keys(allData).length;
-            document.getElementById('infoClients').textContent = clients.size;
-            document.getElementById('infoSamples').textContent = totalSamples;
-            const badge = document.getElementById('mappingBadge');
-            const ratio = totalColumnsMapped / (Object.keys(allData).length * requiredFields.length);
-            badge.textContent = ratio === 1 ? 'Excellent' : ratio > 0.5 ? 'Partial' : 'Check Headers';
-            badge.style.background = ratio === 1 ? '#27ae60' : ratio > 0.5 ? '#f39c12' : '#e74c3c';
+            // Total samples count (sidebar button)
+            const tsEl = document.getElementById('totalSamplesCount');
+            if (tsEl) tsEl.textContent = totalSamples;
         }
 
         function getSortedSheetNames() {
