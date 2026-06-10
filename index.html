@@ -721,6 +721,12 @@
             max-width: 600px;
         }
 
+        /* Wider text-heavy columns (Test, Client Department, Client Doctor Name, Remarks) */
+        .col-wide {
+            min-width: 280px;
+            max-width: 600px;
+        }
+
         .error {
             background: #e74c3c;
             color: white;
@@ -2732,12 +2738,14 @@ Anderson Diagnostics`;
             
             html += '<div class="table-container"><table><thead><tr>';
             
+            const wideCols = new Set(['Test', 'Client Department', 'Client Doctor Name', 'Remarks']);
             cols.forEach((col, index) => {
                 if (col.noSort) {
                     const cls = col.title === 'Reports' ? 'col-report' : col.title === 'Choose Department' ? 'col-dept' : 'col-mail';
                     html += `<th class="${cls}">${col.title}</th>`;
                 } else {
-                    const thClass = col.title === 'History' ? 'sortable col-history' : 'sortable';
+                    let thClass = col.title === 'History' ? 'sortable col-history' : 'sortable';
+                    if (wideCols.has(col.title)) thClass += ' col-wide';
                     html += `<th class="${thClass}" onclick="sortTable(${index})">${col.title}</th>`;
                 }
             });
@@ -2760,7 +2768,9 @@ Anderson Diagnostics`;
                     } else if (col.title === 'Mail') {
                         html += `<td class="col-mail">${value}</td>`;
                     } else {
-                        const tdClass = col.title === 'History' ? ' class="col-history"' : '';
+                        let tdClass = '';
+                        if (col.title === 'History') tdClass = ' class="col-history"';
+                        else if (wideCols.has(col.title)) tdClass = ' class="col-wide"';
                         html += `<td${tdClass}>${value !== null && value !== undefined ? value : ''}</td>`;
                     }
                 });
