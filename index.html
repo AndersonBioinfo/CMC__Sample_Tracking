@@ -1745,7 +1745,7 @@
         }
 
         // ── "Acknowledge of order registration" compose (header Send Mail button) ──
-        const REGISTRATION_LIMIT  = 10;            // number of latest received samples to include
+        const REGISTRATION_LIMIT  = 10;            // fallback row count when received dates can't be parsed
         let   _latestRegistrations = [];           // rows fetched from the registration sheet
         let   _regLoading          = false;        // true while fetching registrations
 
@@ -1776,8 +1776,9 @@
             return isNaN(t) ? 0 : t;
         }
 
-        // Fetch the latest received samples from the second (registration) sheet via Apps Script.
-        async function fetchLatestRegistrations(limit = REGISTRATION_LIMIT) {
+        // Fetch the registration rows, then keep only the samples received on the MOST RECENT
+        // received date (e.g. all of today's samples). Falls back gracefully if no dates parse.
+        async function fetchLatestRegistrations() {
             const url = `${APPS_SCRIPT_URL}?action=getRegistrations&_t=${Date.now()}`;
             const res = await fetch(url);
             const text = await res.text();
@@ -1785,10 +1786,20 @@
             try { json = JSON.parse(text); } catch { throw new Error('Registration sheet returned a non-JSON response. Check the Apps Script.'); }
             if (!json || json.error) throw new Error((json && json.error) || 'No registration data returned.');
             const rows = json.registrations || json.rows || [];
-            return rows
-                .slice()
-                .sort((a, b) => _parseRegDate(getRegVal(b, 'Received date')) - _parseRegDate(getRegVal(a, 'Received date')))
-                .slice(0, limit);
+
+            // Pair each row with its parsed received-date timestamp (midnight of that day).
+            const dated = rows
+                .map(r => ({ r, t: _parseRegDate(getRegVal(r, 'Received date')) }))
+                .filter(x => x.t > 0);
+
+            // No parseable received dates → fall back to the last N rows in sheet order.
+            if (!dated.length) return rows.slice(-REGISTRATION_LIMIT);
+
+            // Most recent received date present in the sheet.
+            const latestT = Math.max.apply(null, dated.map(x => x.t));
+
+            // Return every sample received on that latest date, in sheet order.
+            return dated.filter(x => x.t === latestT).map(x => x.r);
         }
 
         // Build the HTML registration table from the latest received samples.
@@ -1881,7 +1892,8 @@ Anderson Diagnostics`;
                     _latestRegistrations = rows;
                     _regLoading = false;
                     rich.innerHTML = buildAckRichBody();   // rebuild body with the real table
-                    showToast(`✓ Loaded ${rows.length} latest registration${rows.length === 1 ? '' : 's'}`, 'success');
+                    const dateLabel = rows.length ? String(getRegVal(rows[0], 'Received date') || '').trim() : '';
+                    showToast(`✓ Loaded ${rows.length} sample${rows.length === 1 ? '' : 's'}${dateLabel ? ' received on ' + dateLabel : ''}`, 'success');
                 })
                 .catch(err => {
                     _regLoading = false;
