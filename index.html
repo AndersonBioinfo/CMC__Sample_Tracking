@@ -1739,38 +1739,73 @@
         }
 
         // ── "Acknowledge of order registration" compose (header Send Mail button) ──
-        const ACK_TABLE_TOKEN = '{{SAMPLE_TABLE}}';
+        const ACK_TABLE_TOKEN     = '{{SAMPLE_TABLE}}';
+        const REGISTRATION_LIMIT  = 10;            // number of latest received samples to include
+        let   _latestRegistrations = [];           // rows fetched from the registration sheet
 
-        // Build the HTML registration table from the currently displayed samples,
-        // reusing the live column extractors (currentTableCols) so values match the grid.
-        function buildAckTableHTML() {
-            const rows = Array.isArray(currentView) ? currentView : [];
-            const colByTitle = {};
-            (currentTableCols || []).forEach(c => { colByTitle[c.title] = c; });
-            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            const val = (r, title) => {
-                const c = colByTitle[title];
-                const v = c ? c.getValue(r) : '';
-                return (v == null) ? '' : String(v).trim();
+        // Read a logical column from a registration row, matching header names flexibly.
+        function getRegVal(row, field) {
+            const aliases = {
+                'Sample name':   ['samplename','sample','samplecode','wesno','wesnumber','accession','accessionno'],
+                'Received date': ['receiveddate','received','regdate','registrationdate','dateofreceipt'],
+                'Anderson ID':   ['andersonid','andid','anderson','adkid','adk'],
+                'Sample type':   ['sampletype','specimen','specimentype','type'],
+                'Test name':     ['testname','test','testtype','assay'],
+                'Raw data TAT':  ['rawdatatat','rawdata','rawtat','rawdatadate','rawdatadue'],
+                'Report TAT':    ['reporttat','report','reportdate','tatreport','reportdue','tat']
             };
-            const hasSampleType = !!colByTitle['Sample Type'];
+            const want = aliases[field] || [];
+            for (const k of Object.keys(row)) {
+                const nk = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (want.includes(nk)) return row[k];
+            }
+            return '';
+        }
+
+        function _parseRegDate(v) {
+            const s = String(v || '').trim();
+            const m = s.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);   // d/m/yyyy
+            if (m) { let [, d, mo, y] = m; if (y.length === 2) y = '20' + y; return new Date(+y, +mo - 1, +d).getTime(); }
+            const t = Date.parse(s);
+            return isNaN(t) ? 0 : t;
+        }
+
+        // Fetch the latest received samples from the second (registration) sheet via Apps Script.
+        async function fetchLatestRegistrations(limit = REGISTRATION_LIMIT) {
+            const url = `${APPS_SCRIPT_URL}?action=getRegistrations&_t=${Date.now()}`;
+            const res = await fetch(url);
+            const text = await res.text();
+            let json;
+            try { json = JSON.parse(text); } catch { throw new Error('Registration sheet returned a non-JSON response. Check the Apps Script.'); }
+            if (!json || json.error) throw new Error((json && json.error) || 'No registration data returned.');
+            const rows = json.registrations || json.rows || [];
+            return rows
+                .slice()
+                .sort((a, b) => _parseRegDate(getRegVal(b, 'Received date')) - _parseRegDate(getRegVal(a, 'Received date')))
+                .slice(0, limit);
+        }
+
+        // Build the HTML registration table from the latest received samples.
+        function buildAckTableHTML() {
+            const rows = Array.isArray(_latestRegistrations) ? _latestRegistrations : [];
+            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const val = (r, field) => { const v = getRegVal(r, field); return (v == null) ? '' : String(v).trim(); };
             const headers = ['Sample name','Received date','Anderson ID','Sample type','Test name','Raw data TAT','Report TAT'];
             let html = '<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;margin:14px 0;">';
             html += '<thead><tr>' + headers.map(h =>
                 `<th style="border:1px solid #6b7280;background:#dbe2f1;padding:7px 9px;text-align:center;font-weight:bold;">${h}</th>`
             ).join('') + '</tr></thead><tbody>';
             rows.forEach(r => {
-                const sampleType = hasSampleType ? (val(r,'Sample Type') || 'DNA') : 'DNA';
                 const cells = [
-                    val(r,'Sample Name'), val(r,'Received Date'), val(r,'Anderson ID'),
-                    sampleType, val(r,'Test'), val(r,'Raw Data Date'), val(r,'TAT Report Date')
+                    val(r,'Sample name'), val(r,'Received date'), val(r,'Anderson ID'),
+                    val(r,'Sample type') || 'DNA', val(r,'Test name'), val(r,'Raw data TAT'), val(r,'Report TAT')
                 ];
                 html += '<tr>' + cells.map((c, i) =>
                     `<td style="border:1px solid #6b7280;padding:6px 9px;text-align:${i === 4 ? 'left' : 'center'};">${esc(c)}</td>`
                 ).join('') + '</tr>';
             });
             if (!rows.length) {
-                html += `<tr><td colspan="7" style="border:1px solid #6b7280;padding:8px;text-align:center;color:#888;">No samples in the current view</td></tr>`;
+                html += `<tr><td colspan="7" style="border:1px solid #6b7280;padding:8px;text-align:center;color:#888;">No registration data loaded</td></tr>`;
             }
             html += '</tbody></table>';
             return html;
@@ -1823,6 +1858,18 @@ Anderson Diagnostics`;
             };
             document.getElementById('mailPreviewModal').classList.add('active');
             document.getElementById('mpTo').focus();
+
+            // Fetch the latest received samples from the registration sheet for the table.
+            _latestRegistrations = [];
+            showToast('📥 Loading latest received samples…', 'info');
+            fetchLatestRegistrations()
+                .then(rows => {
+                    _latestRegistrations = rows;
+                    showToast(`✓ Loaded ${rows.length} latest registration${rows.length === 1 ? '' : 's'}`, 'success');
+                })
+                .catch(err => {
+                    showToast('⚠ Could not load registration sheet: ' + err.message, 'error');
+                });
         }
 
         function _getPatientName(row) {
