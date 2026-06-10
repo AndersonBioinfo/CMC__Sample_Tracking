@@ -1165,10 +1165,9 @@
                 <div class="mp-field"><span class="mp-label">To</span><input class="mp-input" id="mpTo" type="email" placeholder="recipient@example.com"></div>
                 <div class="mp-field"><span class="mp-label">CC</span><input class="mp-input" id="mpCC" type="text" placeholder="cc@example.com"></div>
                 <div class="mp-field"><span class="mp-label">Subject</span><input class="mp-input" id="mpSubject" type="text" placeholder="Subject"></div>
-                <div class="mp-field"><span class="mp-label">Body</span><textarea class="mp-body-input" id="mpBody"></textarea></div>
-                <div class="mp-field" id="mpPreviewWrap" style="display:none;">
-                    <span class="mp-label">Email<br>Preview</span>
-                    <div id="mpHtmlPreview" style="flex:1;width:100%;background:#fff;border:1.5px solid #c7d2fe;border-radius:8px;padding:14px;max-height:320px;overflow:auto;font-size:13px;color:#222;box-sizing:border-box;"></div>
+                <div class="mp-field"><span class="mp-label">Body</span>
+                    <textarea class="mp-body-input" id="mpBody"></textarea>
+                    <div id="mpRichBody" contenteditable="true" style="display:none;flex:1;width:100%;min-height:260px;max-height:440px;overflow:auto;background:#f5f3ff;border:1.5px solid #c7d2fe;border-radius:8px;padding:12px;font-size:13px;color:#374151;line-height:1.6;box-sizing:border-box;"></div>
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
                     <button class="email-cancel-btn" onclick="closeMailPreview()">Cancel</button>
@@ -1724,10 +1723,9 @@
             document.getElementById('mpCC').value      = ccEmail         || '';
             document.getElementById('mpSubject').value = preview.subject  || '';
             document.getElementById('mpBody').value    = preview.body     || '';
-            // Plain per-row email: hide the registration-table preview and disable live updates
-            document.getElementById('mpPreviewWrap').style.display = 'none';
-            document.getElementById('mpBody').oninput    = null;
-            document.getElementById('mpSubject').oninput = null;
+            // Plain per-row email: use the plain textarea body, hide the rich (table) editor
+            document.getElementById('mpBody').style.display = '';
+            document.getElementById('mpRichBody').style.display = 'none';
             const btn = document.getElementById('mailPreviewSendBtn');
             btn.onclick = async () => {
                 const to      = document.getElementById('mpTo').value.trim();
@@ -1747,7 +1745,6 @@
         }
 
         // ── "Acknowledge of order registration" compose (header Send Mail button) ──
-        const ACK_TABLE_TOKEN     = '[ LATEST RECEIVED SAMPLES TABLE ]';   // placeholder in Body; replaced by the real table on send
         const REGISTRATION_LIMIT  = 10;            // number of latest received samples to include
         let   _latestRegistrations = [];           // rows fetched from the registration sheet
         let   _regLoading          = false;        // true while fetching registrations
@@ -1800,7 +1797,7 @@
             const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
             const val = (r, field) => { const v = getRegVal(r, field); return (v == null) ? '' : String(v).trim(); };
             const headers = ['Sample name','Received date','Anderson ID','Sample type','Test name','Raw data TAT','Report TAT'];
-            let html = '<table style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;margin:14px 0;">';
+            let html = '<table contenteditable="false" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif;font-size:13px;margin:14px 0;">';
             html += '<thead><tr>' + headers.map(h =>
                 `<th style="border:1px solid #6b7280;background:#dbe2f1;padding:7px 9px;text-align:center;font-weight:bold;">${h}</th>`
             ).join('') + '</tr></thead><tbody>';
@@ -1821,24 +1818,25 @@
             return html;
         }
 
-        // Combine the editable body text with the auto-generated table at the token.
-        function buildAckEmailHtml(bodyText) {
-            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            const htmlParts = String(bodyText || '').split(ACK_TABLE_TOKEN).map(p => esc(p).replace(/\n/g,'<br>'));
-            return '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#222;max-width:900px;">'
-                + htmlParts.join(buildAckTableHTML())
-                + '</div>';
-        }
+        // Editable body text that sits before / after the inline table.
+        const ACK_BODY_BEFORE =
+`Dear CMC team,
 
-        // Render the live "this is what will be sent" preview (subject + body + real table).
-        function refreshAckPreview() {
-            const wrap = document.getElementById('mpPreviewWrap');
-            const prev = document.getElementById('mpHtmlPreview');
-            if (!wrap || !prev) return;
-            const subj = document.getElementById('mpSubject').value.trim();
-            prev.innerHTML = (subj ? `<div style="font-size:18px;font-weight:600;margin-bottom:12px;color:#111;">${subj.replace(/</g,'&lt;')}</div>` : '')
-                + buildAckEmailHtml(document.getElementById('mpBody').value);
-            wrap.style.display = 'flex';
+Greetings of the day,
+
+This is to inform you that the patient's samples have been received successfully and the registration has been completed. The registration details are as follows:`;
+        const ACK_BODY_AFTER =
+`While every effort will be made to ensure that the report is sent within TAT, in the case of unexpected delay an intimation will be sent prior to the delivery date.
+
+Thanks and Regards
+Dr. S. Muthukumaran PhD
+Anderson Diagnostics`;
+
+        // Build the editable rich-body HTML: text + the real registration table inline.
+        function buildAckRichBody() {
+            const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const toHtml = t => esc(t).replace(/\n/g, '<br>');
+            return toHtml(ACK_BODY_BEFORE) + '<br><br>' + buildAckTableHTML() + '<br><br>' + toHtml(ACK_BODY_AFTER);
         }
 
         function openComposeMail() {
@@ -1847,58 +1845,47 @@
             document.getElementById('mpTo').value      = '';
             document.getElementById('mpCC').value      = '';
             document.getElementById('mpSubject').value = 'Acknowledge of order registration';
-            document.getElementById('mpBody').value    =
-`Dear CMC team,
 
-Greetings of the day,
-
-This is to inform you that the patient's samples have been received successfully and the registration has been completed. The registration details are as follows:
-
-${ACK_TABLE_TOKEN}
-
-While every effort will be made to ensure that the report is sent within TAT, in the case of unexpected delay an intimation will be sent prior to the delivery date.
-
-Thanks and Regards
-Dr. S. Muthukumaran PhD
-Anderson Diagnostics`;
+            // Switch the Body to the rich (table-aware) editor.
+            const ta   = document.getElementById('mpBody');
+            const rich = document.getElementById('mpRichBody');
+            ta.style.display = 'none';
+            rich.style.display = 'block';
+            rich.innerHTML = buildAckRichBody();   // table area shows "loading…" until fetch resolves
 
             const btn = document.getElementById('mailPreviewSendBtn');
             btn.onclick = async () => {
-                const to       = document.getElementById('mpTo').value.trim();
-                const cc       = document.getElementById('mpCC').value.trim();
-                const subject  = document.getElementById('mpSubject').value.trim();
-                const bodyText = document.getElementById('mpBody').value;
+                const to      = document.getElementById('mpTo').value.trim();
+                const cc      = document.getElementById('mpCC').value.trim();
+                const subject = document.getElementById('mpSubject').value.trim();
                 if (!to)      { showToast('⚠ Please enter a recipient (To) address', 'error'); return; }
                 if (!subject) { showToast('⚠ Please enter a subject', 'error'); return; }
-                const htmlBody  = buildAckEmailHtml(bodyText);
-                const plainBody = bodyText.replace(ACK_TABLE_TOKEN, '(registration details table)');
+                const htmlBody  = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#222;max-width:900px;">'
+                    + rich.innerHTML + '</div>';
+                const plainBody = rich.innerText;
                 btn.textContent = '⏳ Sending…'; btn.disabled = true;
                 const ok = await sendEmailViaScript('', to, cc, subject, plainBody, htmlBody);
                 btn.textContent = '✉️ Send Email'; btn.disabled = false;
                 if (ok) closeMailPreview();
             };
-            // Live-update the rendered preview as the text is edited
-            document.getElementById('mpBody').oninput    = refreshAckPreview;
-            document.getElementById('mpSubject').oninput = refreshAckPreview;
 
             document.getElementById('mailPreviewModal').classList.add('active');
             document.getElementById('mpTo').focus();
 
-            // Fetch the latest received samples from the registration sheet, then show the table.
+            // Fetch the latest received samples from the registration sheet, then drop the table into the body.
             _latestRegistrations = [];
             _regLoading = true;
-            refreshAckPreview();   // shows the email immediately (table area says "loading…")
             showToast('📥 Loading latest received samples…', 'info');
             fetchLatestRegistrations()
                 .then(rows => {
                     _latestRegistrations = rows;
                     _regLoading = false;
-                    refreshAckPreview();   // re-render with the real table
+                    rich.innerHTML = buildAckRichBody();   // rebuild body with the real table
                     showToast(`✓ Loaded ${rows.length} latest registration${rows.length === 1 ? '' : 's'}`, 'success');
                 })
                 .catch(err => {
                     _regLoading = false;
-                    refreshAckPreview();
+                    rich.innerHTML = buildAckRichBody();   // shows the table with a "no data" note
                     showToast('⚠ Could not load registration sheet: ' + err.message, 'error');
                 });
         }
