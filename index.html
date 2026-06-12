@@ -2555,7 +2555,7 @@ Anderson Diagnostics`;
                 clientDept: { title: 'Client Department', keys: ['clientdepartment', 'clientname', 'client', 'department', 'referral', 'refby', 'referredby', 'referringhospital', 'referringdoctor', 'hospital', 'hospitalname', 'centername', 'center', 'clinic', 'account', 'customer', 'source'] },
                 remarks: { title: 'Remarks', keys: ['remarks', 'remark', 'comments', 'comment', 'notes', 'history'] },
                 receivedDate: { title: 'Received Date', keys: ['receiveddate', 'datereceived', 'receiptdate', 'registrationdate', 'regdate', 'inwarddate', 'entrydate', 'bookingdate', 'received', 'dateofreceiptt'] },
-                rawDataDate: { title: 'Raw Data Date', keys: ['rawdatadate', 'rawdatasent', 'rawdata', 'rundate', 'sequencingdate', 'rawdatareceived', 'datasentdate', 'rawdatasentdate'] },
+                rawDataDate: { title: 'Raw Data Sent', keys: ['rawdatadate', 'rawdatasent', 'rawdata', 'rundate', 'sequencingdate', 'rawdatareceived', 'datasentdate', 'rawdatasentdate'] },
                 tatReportDate: { title: 'TAT Report Date', keys: ['tatreportdate', 'tatreport', 'tatdate', 'duedate', 'targetdate', 'promiseddate', 'tat'] },
                 reportReleasedDate: { title: 'Report Released Date', keys: ['reportreleaseddate', 'reportreleased', 'releaseddate', 'releasedate', 'dispatchdate', 'completiondate', 'finalreport', 'issueddate'] },
                 status: { title: 'Status', keys: ['status', 'samplestatus', 'reportstatus', 'processstatus', 'currentstatus'] }
@@ -2686,7 +2686,7 @@ Anderson Diagnostics`;
                 }},
                 { title: 'Remarks', getValue: (r) => keyMap.remarks ? r[keyMap.remarks] : '' },
                 { title: 'Received Date', getValue: (r) => keyMap.receivedDate ? r[keyMap.receivedDate] : '' },
-                { title: 'Raw Data Date', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
+                { title: 'Raw Data Sent', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
                 { title: 'TAT Report Date', getValue: (r) => keyMap.tatReportDate ? r[keyMap.tatReportDate] : '' },
                 { title: 'Report Released Date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' },
                 { title: 'Status', getValue: (r) => calculateStatus(r, r._sourceSheet) }
