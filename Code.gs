@@ -7,13 +7,14 @@
 const CONFIG = {
   // Change this to the email address(es) that should receive alerts
   // Multiple emails can be separated by commas: "user1@example.com, user2@example.com"
-  ALERT_RECIPIENTS: Session.getEffectiveUser().getEmail(),
+  ALERT_RECIPIENTS: "vikramadhithyabioinformatics@gmail.com",
   DASHBOARD_URL: "https://andersonlabs.github.io/lab-tracker/", // Update with your actual URL
   SHEET_NAME_PATTERN: /^[a-zA-Z]{3,}\s\d{4}$/i // Matches "Jan 2026", "April 2025", etc.
 };
 
 function doGet(e) {
-  const action = e.parameter.action;
+  e = e || {};
+  const action = (e.parameter || {}).action;
 
   if (action === 'getAllData') {
     return ContentService.createTextOutput(JSON.stringify(getAllData()))
