@@ -2220,6 +2220,21 @@ Anderson Diagnostics`;
             return calculateStatus(row, sheetName) === 'Released';
         }
 
+        function calculateDaysOverdue(row, sheetName = null) {
+            if (calculateStatus(row, sheetName) !== 'Overdue') return '';
+
+            const targetSheet = sheetName || row._sourceSheet || currentSheet;
+            const tatText = row['tatReport'] || getFieldValue(row, 'tatReport', targetSheet) || '';
+            const tatDate = parseDate(tatText);
+            if (!tatDate) return '';
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const diffDays = Math.round((today - tatDate) / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? diffDays : '';
+        }
+
         function showConfigModal() {
             const modal = document.getElementById('configModal');
             const content = document.getElementById('configContent');
@@ -2689,7 +2704,8 @@ Anderson Diagnostics`;
                 { title: 'Raw Data Sent', getValue: (r) => keyMap.rawDataDate ? r[keyMap.rawDataDate] : '' },
                 { title: 'TAT Report Date', getValue: (r) => keyMap.tatReportDate ? r[keyMap.tatReportDate] : '' },
                 { title: 'Report Released Date', getValue: (r) => keyMap.reportReleasedDate ? r[keyMap.reportReleasedDate] : '' },
-                { title: 'Status', getValue: (r) => calculateStatus(r, r._sourceSheet) }
+                { title: 'Status', getValue: (r) => calculateStatus(r, r._sourceSheet) },
+                { title: 'Days Overdue', getValue: (r) => calculateDaysOverdue(r, r._sourceSheet) }
             ];
 
             const formatHeader = (key) => {
