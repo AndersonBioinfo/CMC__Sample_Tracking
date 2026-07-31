@@ -1221,10 +1221,8 @@
     </div>
 
     <script>
-        // Points at this project's own Node/Express backend (see /backend), which replaced
-        // the old Google Apps Script Web App. Same-origin by default when served by the
-        // backend; override at build/deploy time if the frontend is hosted separately.
-        const APPS_SCRIPT_URL = window.API_BASE_URL || '/api/exec';
+        // REPLACE THIS WITH YOUR DEPLOYED APPS SCRIPT WEB APP URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzF8Z_EsheUURJ4p9YIWsTDHcOBAZdrF86gDyCc9Iq0wL_EOciNGKcejSsDR9l3ZTTfBw/exec';
         
         let allData = {};
         let metadata = {};

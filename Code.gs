@@ -2,9 +2,6 @@
  * Lab Tracker API
  * Handles data fetching for the Lab Sample Tracker Dashboard
  * and sends automatic email alerts for overdue samples.
- *
- * LEGACY: kept for reference only. The IT-server deployment uses
- * backend/ (Node/Express + Google Sheets API + SMTP) instead — see DEPLOYMENT.md.
  */
 
 const CONFIG = {
