@@ -2190,8 +2190,26 @@ Anderson Diagnostics`;
             return (month !== undefined && !isNaN(year)) ? new Date(year, month, 1) : null;
         }
 
+        // A "repeat sample" is a sample sent back for resequencing after already being
+        // released once. The user marks these in the Remarks column, so they should show
+        // as Released but must not add a second count on top of the original sample.
+        function isRepeatSample(row, sheetName = null) {
+            const targetSheet = sheetName || row._sourceSheet || currentSheet;
+            const remarks = String(
+                row['remarks'] || row['Remarks'] || row['REMARKS'] ||
+                getFieldValue(row, 'remarks', targetSheet) || ''
+            ).toLowerCase();
+
+            // Matches "repeat sample" and the common typo "repaet sample"
+            return remarks.includes('sample') && (remarks.includes('repeat') || remarks.includes('repaet'));
+        }
+
         function calculateStatus(row, sheetName = null) {
             const targetSheet = sheetName || row._sourceSheet || currentSheet;
+
+            // Repeat/resequencing samples are always treated as Released, regardless of
+            // whether the raw data / release date fields are filled in for this row.
+            if (isRepeatSample(row, targetSheet)) return 'Released';
 
             // Sheets up to and including Mar 2026 → all Released
             const sheetDate = getSheetDate(targetSheet);
@@ -2473,7 +2491,9 @@ Anderson Diagnostics`;
                 baseTitle = `${sheetName} - ${activeFilterLabel}`;
             }
 
-            const statRows = baseRows; // counts always reflect pre-TAT-filter view
+            // Counts always reflect pre-TAT-filter view, and skip repeat/resequencing rows
+            // so a sample that was already counted once isn't counted again.
+            const statRows = baseRows.filter(row => !isRepeatSample(row, row._sourceSheet || sheetName));
 
             let displayRows = baseRows;
             if (activeTATFilter) {
