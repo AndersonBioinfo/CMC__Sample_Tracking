@@ -14,15 +14,71 @@ const CONFIG = {
 
 function doGet(e) {
   e = e || {};
-  const action = (e.parameter || {}).action;
+  const params = e.parameter || {};
+  const action = params.action;
 
   if (action === 'getAllData') {
-    return ContentService.createTextOutput(JSON.stringify(getAllData()))
+    const forceRefresh = params.force === '1';
+    let json = forceRefresh ? null : getCachedAllDataJson();
+    if (!json) {
+      json = JSON.stringify(getAllData());
+      setCachedAllDataJson(json);
+    }
+    return ContentService.createTextOutput(json)
       .setMimeType(ContentService.MimeType.JSON);
   }
 
   return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid action' }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// getAllData() reads every monthly sheet in full on every call, which is the slow part
+// of a page load. Cache the assembled JSON for a few minutes so repeat loads (page
+// refreshes, other users) are near-instant; "Refresh Data" in the UI passes force=1
+// to skip this and pull live data straight from the sheet.
+const ALL_DATA_CACHE_TTL_SECONDS = 300; // 5 minutes, matches the client-side cache
+const ALL_DATA_CACHE_CHUNK_PREFIX = 'allData_chunk_';
+const ALL_DATA_CACHE_COUNT_KEY = 'allData_chunkCount';
+const ALL_DATA_CACHE_CHUNK_SIZE = 90000; // stay under CacheService's 100KB per-key limit
+
+function getCachedAllDataJson() {
+  try {
+    const cache = CacheService.getScriptCache();
+    const countStr = cache.get(ALL_DATA_CACHE_COUNT_KEY);
+    if (!countStr) return null;
+
+    const count = parseInt(countStr, 10);
+    const keys = [];
+    for (let i = 0; i < count; i++) keys.push(ALL_DATA_CACHE_CHUNK_PREFIX + i);
+
+    const chunks = cache.getAll(keys);
+    let json = '';
+    for (let i = 0; i < count; i++) {
+      const chunk = chunks[ALL_DATA_CACHE_CHUNK_PREFIX + i];
+      if (!chunk) return null; // a chunk expired/evicted independently — treat as a full miss
+      json += chunk;
+    }
+    return json;
+  } catch (err) {
+    Logger.log('getCachedAllDataJson error: ' + err.message);
+    return null;
+  }
+}
+
+function setCachedAllDataJson(json) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const toStore = {};
+    let chunkCount = 0;
+    for (let i = 0; i < json.length; i += ALL_DATA_CACHE_CHUNK_SIZE) {
+      toStore[ALL_DATA_CACHE_CHUNK_PREFIX + chunkCount] = json.substring(i, i + ALL_DATA_CACHE_CHUNK_SIZE);
+      chunkCount++;
+    }
+    toStore[ALL_DATA_CACHE_COUNT_KEY] = String(chunkCount);
+    cache.putAll(toStore, ALL_DATA_CACHE_TTL_SECONDS);
+  } catch (err) {
+    Logger.log('setCachedAllDataJson error: ' + err.message);
+  }
 }
 
 function doPost(e) {
@@ -105,8 +161,10 @@ function getAllData() {
 
   sheets.forEach(sheet => {
     const name = sheet.getName();
-    // Only process sheets that look like data sheets (e.g., "Jan 2026")
-    // or you can remove this check to process all sheets
+    // Only process sheets that look like data sheets (e.g., "Jan 2026") — skips
+    // reading/processing any other tabs in the workbook, which slows every request down.
+    if (!CONFIG.SHEET_NAME_PATTERN.test(name.trim())) return;
+
     const data = sheet.getDataRange().getValues();
     const processed = processSheet(data, name);
     

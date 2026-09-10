@@ -1277,7 +1277,7 @@
         }
 
         const CACHE_KEY = 'cmc_tracker_data';
-        const CACHE_TTL = 0; // Always fetch fresh — ensures clientName is populated
+        const CACHE_TTL = 5 * 60 * 1000; // Reuse data fetched in the last 5 minutes; "Refresh Data" always bypasses this
 
         function showError(msg) {
             document.getElementById('contentArea').innerHTML = `
@@ -1311,7 +1311,7 @@
                     const controller = new AbortController();
                     const timeout = setTimeout(() => controller.abort(), 45000);
                     try {
-                        const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${Date.now()}`;
+                        const url = `${APPS_SCRIPT_URL}?action=getAllData&_t=${Date.now()}${forceRefresh ? '&force=1' : ''}`;
                         const response = await fetch(url, { signal: controller.signal });
                         clearTimeout(timeout);
                         const text = await response.text();
